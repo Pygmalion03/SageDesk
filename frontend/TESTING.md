@@ -1,111 +1,69 @@
-# 快速测试指南
+﻿# 快速测试指南
 
-## 问题：No static resource api/ragent/knowledge-base
+## 问题现象
 
-### 原因
-前端开发环境需要配置代理，将API请求转发到后端服务器。
+访问知识库相关页面时，如果浏览器请求直接落到前端开发服务器，可能会出现类似 `No static resource api/ragent/knowledge-base` 的错误。
 
-### 解决方案
+## 原因说明
 
-已在 `vite.config.ts` 中添加代理配置：
+前端开发环境需要通过 Vite 代理把 `/api` 请求转发到 Spring Boot 服务；如果代理没有生效，浏览器会把接口请求当成前端静态资源路径处理。
 
-```typescript
+## 解决方式
+
+确认 `vite.config.ts` 已配置代理：
+
+```ts
 server: {
   port: 5173,
   proxy: {
     "/api": {
       target: "http://localhost:8080",
       changeOrigin: true,
-      secure: false
-    }
-  }
+      secure: false,
+    },
+  },
 }
 ```
 
-### 测试步骤
+## 测试步骤
 
-#### 1. 确认后端服务运行
+### 1. 确认后端服务正常
+
 ```bash
 curl http://localhost:8080/api/ragent/knowledge-base
-# 应该返回：{"code":"A000001","message":"未登录或登录已过期",...}
-# 这说明后端服务正常，只是需要登录
 ```
 
-#### 2. 重启前端开发服务器
+如果返回未登录或鉴权相关 JSON，说明后端服务本身可用。
+
+### 2. 启动前端开发服务
+
 ```bash
-cd /Users/machen/workspace/nageoffer/ragent/frontend
-
-# 停止旧的服务器（如果有）
-pkill -f "vite"
-
-# 启动新的服务器
+cd frontend
+npm install
 npm run dev
 ```
 
-#### 3. 访问前端
-打开浏览器访问：http://localhost:5173 或 http://localhost:5174
+### 3. 打开前端页面
 
-#### 4. 登录测试
-1. 使用管理员账号登录（role='admin'）
-2. 点击左侧边栏底部的用户头像
-3. 选择"管理后台"
-4. 进入知识库管理页面
+访问 `http://localhost:5173`。
 
-#### 5. 测试知识库功能
-- 点击"新建知识库"
-- 填写表单：
-  - 名称：测试知识库
-  - Embedding模型：text-embedding-v3
-  - Collection名称：test_kb
-- 点击创建
+### 4. 检查网络请求
 
-### 常见问题
+打开浏览器开发者工具，在 `Network` 中确认接口请求：
 
-**Q: 端口被占用怎么办？**
-A: Vite会自动尝试下一个端口（5174、5175...）
+- Request URL: `http://localhost:5173/api/ragent/knowledge-base`
+- 代理目标: `http://localhost:8080/api/ragent/knowledge-base`
 
-**Q: 代理不生效？**
-A: 确保重启了开发服务器，配置修改后需要重启
+## 常见问题
 
-**Q: 后端API返回401？**
-A: 正常现象，需要先登录获取token
+### 1. 为什么 API 路径还是 `/api/ragent`
 
-**Q: 如何创建管理员账号？**
-A: 在数据库中手动设置用户的role字段为'admin'：
-```sql
-UPDATE t_user SET role = 'admin' WHERE username = 'your_username';
-```
+这是当前后端的上下文路径，属于运行时配置，和前端品牌名称分开处理。本次换皮只修改展示层，不改接口前缀，避免影响现有功能。
 
-### API路径说明
+### 2. 代理修改后为什么不生效
 
-| 前端请求 | 代理后 | 后端实际路径 |
-|---------|--------|-------------|
-| /api/ragent/knowledge-base | http://localhost:8080/api/ragent/knowledge-base | /knowledge-base (context-path已包含/api/ragent) |
+Vite 在修改代理配置后需要重启开发服务器。
 
-### 网络请求检查
+### 3. 接口返回 401 是否异常
 
-打开浏览器开发者工具（F12）-> Network标签，查看请求：
-
-**正常情况：**
-- Request URL: http://localhost:5173/api/ragent/knowledge-base
-- Status: 200 OK 或 401 Unauthorized（未登录）
-- Response: JSON格式数据
-
-**异常情况：**
-- Status: 404 Not Found
-- Response: "No static resource..."
-- 解决：检查代理配置，重启开发服务器
-
-### 当前状态
-
-✅ 后端服务运行中：http://localhost:8080
-✅ 前端服务运行中：http://localhost:5174
-✅ 代理配置已添加
-✅ 可以开始测试
-
-### 下一步
-
-1. 登录系统
-2. 进入管理后台
-3. 测试知识库CRUD功能
-4. 如有问题，查看浏览器控制台和Network标签
+不是异常。通常表示后端服务正常，只是当前请求还没有登录态。

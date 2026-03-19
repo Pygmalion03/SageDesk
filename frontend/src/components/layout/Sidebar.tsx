@@ -29,8 +29,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { APP_COMMUNITY_URL, APP_DOCS_URL, APP_SHORT_NAME, APP_TAGLINE } from "@/config/app";
 import { Loading } from "@/components/common/Loading";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
@@ -126,6 +128,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const avatarFallback = (user?.username || user?.userId || "用户").slice(0, 1).toUpperCase();
   const sessionTitleFont =
     "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei\", \"Helvetica Neue\", Arial, sans-serif";
+  const hasResourceLinks = Boolean(APP_DOCS_URL || APP_COMMUNITY_URL);
 
   const startRename = (id: string, title: string) => {
     setRenamingId(id);
@@ -174,8 +177,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <Bot className="h-5 w-5 text-white" />
             </div>
             <div style={{ fontFamily: sessionTitleFont }}>
-              <p className="text-base font-semibold text-[#1A1A1A]">RAG 智能问答</p>
-              <p className="text-xs text-[#999999]">Powered by AI</p>
+              <p className="text-base font-semibold text-[#1A1A1A]">{APP_SHORT_NAME}</p>
+              <p className="text-xs text-[#999999]">{APP_TAGLINE}</p>
             </div>
           </div>
         </div>
@@ -411,28 +414,33 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-48">
-              <DropdownMenuItem asChild>
-                <a
-                  href="https://nageoffer.com/ragent"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center"
-                >
-                  <BookOpen className="mr-2 h-4 w-4" />
-                  官方文档
-                </a>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <a
-                  href="https://space.bilibili.com/352177376"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center"
-                >
-                  <PlayCircle className="mr-2 h-4 w-4" />
-                  哔哩哔哩
-                </a>
-              </DropdownMenuItem>
+              {APP_DOCS_URL ? (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={APP_DOCS_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center"
+                  >
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    项目文档
+                  </a>
+                </DropdownMenuItem>
+              ) : null}
+              {APP_COMMUNITY_URL ? (
+                <DropdownMenuItem asChild>
+                  <a
+                    href={APP_COMMUNITY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center"
+                  >
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    项目主页
+                  </a>
+                </DropdownMenuItem>
+              ) : null}
+              {hasResourceLinks ? <DropdownMenuSeparator /> : null}
               <DropdownMenuItem onClick={() => logout()} className="text-rose-600 focus:text-rose-600">
                 <LogOut className="mr-2 h-4 w-4" />
                 退出登录

@@ -1,8 +1,8 @@
 import type { User } from "@/types";
 
-const TOKEN_KEY = "ragent_token";
-const USER_KEY = "ragent_user";
-const THEME_KEY = "ragent_theme";
+const TOKEN_KEY = "sagedesk_token";
+const USER_KEY = "sagedesk_user";
+const THEME_KEY = "sagedesk_theme";
 
 function safeGet(key: string) {
   try {
