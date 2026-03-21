@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_020-9cacaaa3","taskId":"2034897263171526657"}
+
+event:cancel
+data:{"messageId":"null","title":"双路检索Rerank收益量化指标"}
+
+event:done
+data:[DONE]
+

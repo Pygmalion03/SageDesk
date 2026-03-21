@@ -1,0 +1,40 @@
+{
+  "questions": [
+    {
+      "key": "sample_001",
+      "title": "双路检索怎么做",
+      "description": "聚焦召回率、问题重写和 Rerank。",
+      "question": "这个项目里的双路检索和 Rerank 链路是怎么设计的？"
+    },
+    {
+      "key": "sample_002",
+      "title": "高并发如何稳定",
+      "description": "聚焦 Redis 限流、排队和 SSE 保护。",
+      "question": "如果高并发用户同时发起 RAG 对话，你是怎么保证服务稳定性的？"
+    },
+    {
+      "key": "sample_003",
+      "title": "数据怎么量化",
+      "description": "聚焦召回率、RT、P95 和成功率。",
+      "question": "这个项目里哪些指标最适合量化后写到简历里？"
+    },
+    {
+      "key": "sample_004",
+      "title": "Dashboard 看什么",
+      "description": "聚焦可观测体系和运营看板。",
+      "question": "这个项目自带 dashboard 可以统计哪些核心指标？"
+    },
+    {
+      "key": "sample_005",
+      "title": "知识库怎么导入",
+      "description": "聚焦文档切块、向量化和导入流程。",
+      "question": "知识库文档上传后，后端是怎么做切块和向量索引的？"
+    },
+    {
+      "key": "sample_006",
+      "title": "简历怎么表达",
+      "description": "聚焦项目亮点改写成简历 bullet。",
+      "question": "如果把这个项目写进简历，双路检索和限流稳定性应该怎么表达？"
+    }
+  ]
+}

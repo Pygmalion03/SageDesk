@@ -134,8 +134,12 @@ ai:
         priority: 0
       - id: qwen3-local
         provider: ollama
-        model: qwen3:8b-fp16
+        model: qwen3:8b
         priority: 2
+      - id: qwen3-local-fast
+        provider: ollama
+        model: qwen3:4b
+        priority: 1
 
   embedding:
     default-model: qwen-emb-8b

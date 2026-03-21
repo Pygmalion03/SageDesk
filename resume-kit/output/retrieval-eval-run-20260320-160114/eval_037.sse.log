@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_037-49500118","taskId":"2034905339501010945"}
+
+event:cancel
+data:{"messageId":"null","title":"性能看板指标"}
+
+event:done
+data:[DONE]
+

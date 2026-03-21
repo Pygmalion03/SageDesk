@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_027-c31cafdf","taskId":"2034901371383242753"}
+
+event:cancel
+data:{"messageId":"null","title":"压测RAG SSE对话QPS局限"}
+
+event:done
+data:[DONE]
+

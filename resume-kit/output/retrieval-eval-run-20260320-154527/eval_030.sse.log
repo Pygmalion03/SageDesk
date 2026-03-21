@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_030-aeb7340d","taskId":"2034902634527252481"}
+
+event:cancel
+data:{"messageId":"null","title":"限流方案简历性能词"}
+
+event:done
+data:[DONE]
+

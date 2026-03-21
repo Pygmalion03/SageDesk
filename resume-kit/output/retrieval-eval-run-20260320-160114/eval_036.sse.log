@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_036-bf84c45e","taskId":"2034905051142610945"}
+
+event:cancel
+data:{"messageId":"null","title":"Overview看板业务量指标"}
+
+event:done
+data:[DONE]
+

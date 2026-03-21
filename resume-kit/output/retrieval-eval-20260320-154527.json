@@ -1,0 +1,326 @@
+﻿{
+    "generatedAt":  "2026-03-20T16:00:56",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "caseCount":  10,
+    "startCaseIndex":  21,
+    "topN":  3,
+    "recallAtNPercent":  100,
+    "avgKeywordCoveragePercent":  null,
+    "cases":  [
+                  {
+                      "id":  "eval_021",
+                      "question":  "为什么 RAG 对话比普通 CRUD 接口更需要做全局排队限流？",
+                      "traceId":  "2034899104974299136",
+                      "taskId":  "2034899104974299137",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_021.sse.log"
+                  },
+                  {
+                      "id":  "eval_022",
+                      "question":  "如果不对 RAG SSE 对话做并发约束，最容易出现什么问题？",
+                      "traceId":  "2034899445102993408",
+                      "taskId":  "2034899445102993409",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_022.sse.log"
+                  },
+                  {
+                      "id":  "eval_023",
+                      "question":  "这个项目的全局排队限流方案核心用了哪些组件？",
+                      "traceId":  "2034899835341037568",
+                      "taskId":  "2034899835341037569",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_023.sse.log"
+                  },
+                  {
+                      "id":  "eval_024",
+                      "question":  "进入请求先排队，再做执行许可控制，这两层设计各自解决什么问题？",
+                      "traceId":  "2034900159330050048",
+                      "taskId":  "2034900159330050049",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611315883945985"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_024.sse.log"
+                  },
+                  {
+                      "id":  "eval_025",
+                      "question":  "为什么要用 Redis 原子脚本来保证 claim 行为一致？",
+                      "traceId":  "2034900642182520832",
+                      "taskId":  "2034900642182520833",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_025.sse.log"
+                  },
+                  {
+                      "id":  "eval_026",
+                      "question":  "这个项目里为什么会把会话记忆压缩也归到稳定性方案里？",
+                      "traceId":  "2034900998492839936",
+                      "taskId":  "2034900998492839937",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611307314982913",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_026.sse.log"
+                  },
+                  {
+                      "id":  "eval_027",
+                      "question":  "压测 RAG SSE 对话时，为什么不能只看 QPS？",
+                      "traceId":  "2034901371383242752",
+                      "taskId":  "2034901371383242753",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_027.sse.log"
+                  },
+                  {
+                      "id":  "eval_028",
+                      "question":  "一次 SSE 请求的 RT 在这个项目里是怎么定义的？",
+                      "traceId":  "2034901710576607232",
+                      "taskId":  "2034901710576607233",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611341796356097",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_028.sse.log"
+                  },
+                  {
+                      "id":  "eval_029",
+                      "question":  "为什么 TTFB 更能体现排队、检索和首轮模型响应速度？",
+                      "traceId":  "2034902244662501376",
+                      "taskId":  "2034902244662501377",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_029.sse.log"
+                  },
+                  {
+                      "id":  "eval_030",
+                      "question":  "如果把这个限流方案写进简历，最该带上的几个性能词是什么？",
+                      "traceId":  "2034902634527252480",
+                      "taskId":  "2034902634527252481",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability",
+                                              "resume_highlights"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960",
+                                             "2034611359152386048"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561",
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-154527\\eval_030.sse.log"
+                  }
+              ]
+}

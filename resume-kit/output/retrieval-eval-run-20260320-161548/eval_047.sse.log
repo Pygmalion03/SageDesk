@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_047-0493dd69","taskId":"2034908693681725441"}
+
+event:cancel
+data:{"messageId":"null","title":"知识库导入后状态字段"}
+
+event:done
+data:[DONE]
+

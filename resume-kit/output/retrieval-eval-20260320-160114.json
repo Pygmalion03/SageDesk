@@ -1,0 +1,330 @@
+﻿{
+    "generatedAt":  "2026-03-20T16:15:29",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "caseCount":  10,
+    "startCaseIndex":  31,
+    "topN":  3,
+    "recallAtNPercent":  100,
+    "avgKeywordCoveragePercent":  null,
+    "cases":  [
+                  {
+                      "id":  "eval_031",
+                      "question":  "RAG 项目里为什么必须做 Trace 和 dashboard，而不能只靠日志排查？",
+                      "traceId":  "2034903075235356672",
+                      "taskId":  "2034903075235356673",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611307314982913",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_031.sse.log"
+                  },
+                  {
+                      "id":  "eval_032",
+                      "question":  "这个项目里的可观测体系主要想解决哪两类问题？",
+                      "traceId":  "2034903474046558208",
+                      "taskId":  "2034903474046558209",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611307314982913",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_032.sse.log"
+                  },
+                  {
+                      "id":  "eval_033",
+                      "question":  "当前链路里重点可观测的 Trace 节点有哪些？",
+                      "traceId":  "2034903940323139584",
+                      "taskId":  "2034903940323139585",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_033.sse.log"
+                  },
+                  {
+                      "id":  "eval_034",
+                      "question":  "为什么 multi-channel retrieval 这个节点特别值得单独打点？",
+                      "traceId":  "2034904262479241216",
+                      "taskId":  "2034904262479241217",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard",
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672",
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985",
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_034.sse.log"
+                  },
+                  {
+                      "id":  "eval_035",
+                      "question":  "多通道检索节点现在会额外记录哪些信息？",
+                      "traceId":  "2034904703254454272",
+                      "taskId":  "2034904703254454273",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_035.sse.log"
+                  },
+                  {
+                      "id":  "eval_036",
+                      "question":  "Overview 看板里主要统计哪些业务量指标？",
+                      "traceId":  "2034905051142610944",
+                      "taskId":  "2034905051142610945",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611307314982913",
+                                               "2034611333055426561"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_036.sse.log"
+                  },
+                  {
+                      "id":  "eval_037",
+                      "question":  "Performance 看板里主要统计哪些性能或质量指标？",
+                      "traceId":  "2034905339501010944",
+                      "taskId":  "2034905339501010945",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611333055426561",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_037.sse.log"
+                  },
+                  {
+                      "id":  "eval_038",
+                      "question":  "Trends 看板适合观察哪些趋势性数据？",
+                      "traceId":  "2034905662114291712",
+                      "taskId":  "2034905662114291713",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611307314982913",
+                                               "2034611350541479937"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_038.sse.log"
+                  },
+                  {
+                      "id":  "eval_039",
+                      "question":  "为什么说现在可以直接基于 Trace 做离线评估，而不是手工看日志？",
+                      "traceId":  "2034905942105055232",
+                      "taskId":  "2034905942105055233",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611359240466433",
+                                               "2034611315883945985"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_039.sse.log"
+                  },
+                  {
+                      "id":  "eval_040",
+                      "question":  "如果把 dashboard 指标写进简历，最容易被追问的是哪几类数据？",
+                      "traceId":  "2034906281235505152",
+                      "taskId":  "2034906281235505153",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard",
+                                              "resume_highlights"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672",
+                                             "2034611359152386048"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097",
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-160114\\eval_040.sse.log"
+                  }
+              ]
+}

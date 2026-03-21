@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_021-6b7f366e","taskId":"2034899104974299137"}
+
+event:cancel
+data:{"messageId":"null","title":"RAG对话比CRUD接口更需全局排队限流"}
+
+event:done
+data:[DONE]
+

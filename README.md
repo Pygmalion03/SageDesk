@@ -74,6 +74,15 @@ VITE_APP_COMMUNITY_URL=
 - `VITE_API_BASE_URL` 仍保持 `/api/ragent`，这是当前后端上下文路径，未做破坏性调整。
 - 如需展示仓库、文档或项目主页，可直接补充对应链接。
 
+后端 AI Provider Key 建议通过环境变量注入：
+
+```powershell
+$env:BAILIAN_API_KEY="your-bailian-key"
+$env:SILICONFLOW_API_KEY="your-siliconflow-key"
+```
+
+`bootstrap/src/main/resources/application.yaml` 已改为从 `BAILIAN_API_KEY` 和 `SILICONFLOW_API_KEY` 读取，避免将密钥提交到仓库。
+
 ## 简历表达建议
 
 项目名称：`SageDesk - 企业知识助手`

@@ -46,6 +46,7 @@ import com.nageoffer.ai.ragent.rag.service.handler.StreamCallbackFactory;
 import com.nageoffer.ai.ragent.rag.service.handler.StreamTaskManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -65,6 +66,9 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.DEFAULT_TOP_K;
 @Service
 @RequiredArgsConstructor
 public class RAGChatServiceImpl implements RAGChatService {
+
+    @Value("${rag.benchmark.chat-max-tokens:0}")
+    private Integer benchmarkChatMaxTokens;
 
     private final LLMService llmService;
     private final RAGPromptService promptBuilder;
@@ -161,6 +165,7 @@ public class RAGChatServiceImpl implements RAGChatService {
         ChatRequest req = ChatRequest.builder()
                 .messages(messages)
                 .temperature(0.7D)
+                .maxTokens(resolveChatMaxTokens())
                 .thinking(false)
                 .build();
         return llmService.streamChat(req, callback);
@@ -189,8 +194,16 @@ public class RAGChatServiceImpl implements RAGChatService {
                 .thinking(deepThinking)
                 .temperature(ctx.hasMcp() ? 0.3D : 0D)  // MCP 场景稍微放宽温度
                 .topP(ctx.hasMcp() ? 0.8D : 1D)
+                .maxTokens(resolveChatMaxTokens())
                 .build();
 
         return llmService.streamChat(chatRequest, callback);
+    }
+
+    private Integer resolveChatMaxTokens() {
+        if (benchmarkChatMaxTokens == null || benchmarkChatMaxTokens <= 0) {
+            return null;
+        }
+        return benchmarkChatMaxTokens;
     }
 }

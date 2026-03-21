@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_003-1600cd77","taskId":"2034881962035961857"}
+
+event:cancel
+data:{"messageId":"null","title":"对话系统主链路阶段"}
+
+event:done
+data:[DONE]
+

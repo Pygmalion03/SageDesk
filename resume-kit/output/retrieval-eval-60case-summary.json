@@ -1,0 +1,48 @@
+﻿{
+    "generatedAt":  "2026-03-21T13:01:38",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "batchCount":  6,
+    "caseCount":  60,
+    "topN":  3,
+    "recallAtNPercent":  95,
+    "hitCount":  57,
+    "missCount":  3,
+    "failedCaseIds":  [
+                          "eval_003",
+                          "eval_054",
+                          "eval_055"
+                      ],
+    "batches":  [
+                    {
+                        "startCaseIndex":  1,
+                        "caseCount":  10,
+                        "recallAtNPercent":  90
+                    },
+                    {
+                        "startCaseIndex":  11,
+                        "caseCount":  10,
+                        "recallAtNPercent":  100
+                    },
+                    {
+                        "startCaseIndex":  21,
+                        "caseCount":  10,
+                        "recallAtNPercent":  100
+                    },
+                    {
+                        "startCaseIndex":  31,
+                        "caseCount":  10,
+                        "recallAtNPercent":  100
+                    },
+                    {
+                        "startCaseIndex":  41,
+                        "caseCount":  10,
+                        "recallAtNPercent":  100
+                    },
+                    {
+                        "startCaseIndex":  51,
+                        "caseCount":  10,
+                        "recallAtNPercent":  80
+                    }
+                ]
+}

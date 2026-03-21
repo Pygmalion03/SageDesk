@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_011-01ebc1ee","taskId":"2034894056986828801"}
+
+event:cancel
+data:{"messageId":"null","title":"双路检索链路组成"}
+
+event:done
+data:[DONE]
+

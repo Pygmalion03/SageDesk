@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_001-48220342","taskId":"2034881452331556865"}
+
+event:cancel
+data:{"messageId":"null","title":"项目为何偏企业知识问答系统"}
+
+event:done
+data:[DONE]
+

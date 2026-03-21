@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_033-a920b56a","taskId":"2034903940323139585"}
+
+event:cancel
+data:{"messageId":"null","title":"当前链路重点可观测Trace节点"}
+
+event:done
+data:[DONE]
+

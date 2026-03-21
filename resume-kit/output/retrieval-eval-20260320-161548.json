@@ -1,0 +1,330 @@
+﻿{
+    "generatedAt":  "2026-03-20T16:29:03",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "caseCount":  10,
+    "startCaseIndex":  41,
+    "topN":  3,
+    "recallAtNPercent":  100,
+    "avgKeywordCoveragePercent":  null,
+    "cases":  [
+                  {
+                      "id":  "eval_041",
+                      "question":  "知识库文档导入后，文件、数据库记录和向量索引各自是怎么分工的？",
+                      "traceId":  "2034906742860603392",
+                      "taskId":  "2034906742860603393",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611315883945985",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_041.sse.log"
+                  },
+                  {
+                      "id":  "eval_042",
+                      "question":  "为什么上传后的文档不是同步处理，而是触发异步切块任务？",
+                      "traceId":  "2034907057135607808",
+                      "taskId":  "2034907057135607809",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611333055426561",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_042.sse.log"
+                  },
+                  {
+                      "id":  "eval_043",
+                      "question":  "这个项目支持的两类文档处理模式分别是什么？",
+                      "traceId":  "2034907387999084544",
+                      "taskId":  "2034907387999084545",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_043.sse.log"
+                  },
+                  {
+                      "id":  "eval_044",
+                      "question":  "如果是简历演示类知识库，为什么更推荐结构感知切块？",
+                      "traceId":  "2034907735757217792",
+                      "taskId":  "2034907735757217793",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611307314982913",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_044.sse.log"
+                  },
+                  {
+                      "id":  "eval_045",
+                      "question":  "这套推荐的切块参数大概是什么量级？",
+                      "traceId":  "2034908066377424896",
+                      "taskId":  "2034908066377424897",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611341796356097",
+                                               "2034611333055426561"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_045.sse.log"
+                  },
+                  {
+                      "id":  "eval_046",
+                      "question":  "为什么推荐 targetChars=900、maxChars=1200、overlapChars=120 这一组参数？",
+                      "traceId":  "2034908320808099840",
+                      "taskId":  "2034908320808099841",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_046.sse.log"
+                  },
+                  {
+                      "id":  "eval_047",
+                      "question":  "知识库导入完成后，第一时间要检查哪些状态和字段？",
+                      "traceId":  "2034908693681725440",
+                      "taskId":  "2034908693681725441",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611341796356097",
+                                               "2034611315883945985"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_047.sse.log"
+                  },
+                  {
+                      "id":  "eval_048",
+                      "question":  "为什么说 file storage 和 vector index 分离后，后续重切块和重建索引会更容易？",
+                      "traceId":  "2034909075065593856",
+                      "taskId":  "2034909075065593857",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611315883945985",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_048.sse.log"
+                  },
+                  {
+                      "id":  "eval_049",
+                      "question":  "如果 Trace 里的 resultChunkIds 不能稳定命中目标文档，说明应该优先排哪一段？",
+                      "traceId":  "2034909430889373696",
+                      "taskId":  "2034909430889373697",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking",
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944",
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611350541479937",
+                                               "2034611315883945985"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097",
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_049.sse.log"
+                  },
+                  {
+                      "id":  "eval_050",
+                      "question":  "为什么知识库导入链路本身也值得写进简历，而不只是写问答效果？",
+                      "traceId":  "2034909769961103360",
+                      "taskId":  "2034909769961103361",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking",
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944",
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611307314982913",
+                                               "2034611359240466433",
+                                               "2034611350541479937"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611307314982913",
+                                              "2034611350541479937"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-161548\\eval_050.sse.log"
+                  }
+              ]
+}

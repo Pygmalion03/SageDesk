@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_009-dbed5c79","taskId":"2034886914443632641"}
+
+event:cancel
+data:{"messageId":"null","title":"RAG效果指标最值得量化"}
+
+event:done
+data:[DONE]
+

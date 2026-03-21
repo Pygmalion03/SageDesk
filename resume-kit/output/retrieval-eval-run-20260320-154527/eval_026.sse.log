@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_026-faaa1355","taskId":"2034900998492839937"}
+
+event:cancel
+data:{"messageId":"null","title":"会话记忆压缩归入稳定性方案"}
+
+event:done
+data:[DONE]
+

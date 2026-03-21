@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_038-5c0cbd04","taskId":"2034905662114291713"}
+
+event:cancel
+data:{"messageId":"null","title":"Trends看板趋势数据"}
+
+event:done
+data:[DONE]
+

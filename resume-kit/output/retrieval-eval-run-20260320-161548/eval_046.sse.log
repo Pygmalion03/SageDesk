@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_046-8934be33","taskId":"2034908320808099841"}
+
+event:cancel
+data:{"messageId":"null","title":"参数推荐原因"}
+
+event:done
+data:[DONE]
+

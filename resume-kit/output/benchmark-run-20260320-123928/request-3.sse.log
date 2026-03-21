@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-3-478d54f9","taskId":"2034852624347484160"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034852624334901248","title":"Dual-retrieval plus rerank pipeline 核心思想"}
+
+event:done
+data:[DONE]
+

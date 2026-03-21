@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_028-ce9a550d","taskId":"2034901710576607233"}
+
+event:cancel
+data:{"messageId":"null","title":"SSE请求RT定义"}
+
+event:done
+data:[DONE]
+

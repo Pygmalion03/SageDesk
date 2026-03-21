@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "key": "resume_root",
+      "intentCode": "resume.rag",
+      "name": "RAG 项目总览",
+      "kbKey": "engineering_rag",
+      "level": 0,
+      "parentCode": null,
+      "description": "回答项目业务价值、核心链路、模块拆分和总体架构。",
+      "examples": [
+        "这个项目主要解决什么问题",
+        "整体架构是怎么设计的",
+        "为什么这是你简历里最值得讲的项目"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 10,
+      "enabled": 1,
+      "promptSnippet": "优先总结业务价值、架构全貌和工程亮点。"
+    },
+    {
+      "key": "architecture",
+      "intentCode": "resume.rag.architecture",
+      "name": "系统架构",
+      "kbKey": "engineering_rag",
+      "level": 1,
+      "parentCode": "resume.rag",
+      "description": "回答模块边界、服务职责、调用链和技术栈分层。",
+      "examples": [
+        "后端模块是怎么拆的",
+        "RAG 链路和 Java 工程部分怎么结合",
+        "这个项目的主要技术栈是什么"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 20,
+      "enabled": 1,
+      "promptSnippet": "用模块化语言回答，突出 Java 工程能力和 RAG 算法链路结合。"
+    },
+    {
+      "key": "retrieval",
+      "intentCode": "resume.rag.retrieval",
+      "name": "检索与 Rerank",
+      "kbKey": "engineering_rag",
+      "level": 1,
+      "parentCode": "resume.rag",
+      "description": "回答问题重写、意图路由、双路检索、Rerank 和召回率指标。",
+      "examples": [
+        "双路检索是怎么实现的",
+        "为什么要做问题重写",
+        "怎么量化召回率和准确率"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 30,
+      "enabled": 1,
+      "promptSnippet": "优先回答召回率、Top-K 命中率和链路设计原因。"
+    },
+    {
+      "key": "stability",
+      "intentCode": "resume.rag.stability",
+      "name": "高并发稳定性",
+      "kbKey": "engineering_rag",
+      "level": 1,
+      "parentCode": "resume.rag",
+      "description": "回答 Redis 限流、全局排队、SSE 稳定性、会话压缩和压测口径。",
+      "examples": [
+        "高并发下怎么保证稳定性",
+        "Redis 限流具体做了什么",
+        "压测应该看哪些指标"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 40,
+      "enabled": 1,
+      "promptSnippet": "优先回答 QPS、并发数、RT、P95 和无 OOM 这类工程指标。"
+    },
+    {
+      "key": "observability",
+      "intentCode": "resume.rag.observability",
+      "name": "可观测与 Dashboard",
+      "kbKey": "engineering_rag",
+      "level": 1,
+      "parentCode": "resume.rag",
+      "description": "回答 Trace、Dashboard、错误率、无文档率和质量回归指标。",
+      "examples": [
+        "dashboard 能统计什么",
+        "怎么做可观测性",
+        "怎么把这些数据写到简历里"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 50,
+      "enabled": 1,
+      "promptSnippet": "优先回答 Trace 节点、Dashboard 指标和回归评估闭环。"
+    },
+    {
+      "key": "ingestion",
+      "intentCode": "resume.rag.ingestion",
+      "name": "知识库导入与切块",
+      "kbKey": "engineering_rag",
+      "level": 1,
+      "parentCode": "resume.rag",
+      "description": "回答文件上传、结构化切块、向量索引、Milvus 和对象存储。",
+      "examples": [
+        "知识库怎么导入",
+        "切块策略为什么这么设计",
+        "Milvus 和对象存储怎么配合"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 60,
+      "enabled": 1,
+      "promptSnippet": "优先回答文档导入链路、切块参数和向量化流程。"
+    },
+    {
+      "key": "retrieval_dual_channel",
+      "intentCode": "resume.rag.retrieval.dual_channel",
+      "name": "双路检索",
+      "kbKey": "engineering_rag",
+      "level": 2,
+      "parentCode": "resume.rag.retrieval",
+      "description": "聚焦意图定向检索和全局向量检索的组合策略。",
+      "examples": [
+        "意图定向检索和全局检索分别解决什么问题",
+        "双路检索为什么比单路更稳",
+        "全局向量兜底什么时候启用"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 70,
+      "enabled": 1
+    },
+    {
+      "key": "retrieval_rerank",
+      "intentCode": "resume.rag.retrieval.rerank",
+      "name": "Rerank 与评估",
+      "kbKey": "engineering_rag",
+      "level": 2,
+      "parentCode": "resume.rag.retrieval",
+      "description": "聚焦重排序模型、Top-N 命中率和回归集评估方法。",
+      "examples": [
+        "Rerank 放在什么位置",
+        "Top-3 召回率怎么统计",
+        "答案准确率怎么设计回归集"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 80,
+      "enabled": 1
+    },
+    {
+      "key": "stability_queue",
+      "intentCode": "resume.rag.stability.queue",
+      "name": "排队限流",
+      "kbKey": "engineering_rag",
+      "level": 2,
+      "parentCode": "resume.rag.stability",
+      "description": "聚焦 Redis + Lua + ZSET 的排队模型与资源保护。",
+      "examples": [
+        "全局排队限流怎么设计",
+        "为什么用 Lua 和 ZSET",
+        "SSE 场景下怎么防止服务被打挂"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 90,
+      "enabled": 1
+    },
+    {
+      "key": "stability_benchmark",
+      "intentCode": "resume.rag.stability.benchmark",
+      "name": "压测口径",
+      "kbKey": "engineering_rag",
+      "level": 2,
+      "parentCode": "resume.rag.stability",
+      "description": "聚焦 QPS、RT、P95、TTFB、成功率和无 OOM 口径。",
+      "examples": [
+        "这个项目压测应该怎么做",
+        "QPS 和 RT 应该怎么写进简历",
+        "什么叫能支撑高并发"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 100,
+      "enabled": 1
+    },
+    {
+      "key": "metrics_dashboard",
+      "intentCode": "resume.rag.observability.dashboard",
+      "name": "指标看板",
+      "kbKey": "engineering_rag",
+      "level": 2,
+      "parentCode": "resume.rag.observability",
+      "description": "聚焦 overview、performance、trends 三类 dashboard 指标。",
+      "examples": [
+        "dashboard 的 performance 有哪些字段",
+        "successRate 和 noDocRate 怎么解释",
+        "哪些指标适合写简历"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 110,
+      "enabled": 1
+    },
+    {
+      "key": "metrics_trace",
+      "intentCode": "resume.rag.observability.trace",
+      "name": "链路 Trace",
+      "kbKey": "engineering_rag",
+      "level": 2,
+      "parentCode": "resume.rag.observability",
+      "description": "聚焦 rewrite、intent、retrieve、llm-routing 等节点级耗时与调试。",
+      "examples": [
+        "怎么定位 RAG 某个阶段慢",
+        "Trace 节点都记录了什么",
+        "如何用 Trace 做离线评估"
+      ],
+      "topK": 4,
+      "kind": 0,
+      "sortOrder": 120,
+      "enabled": 1
+    }
+  ]
+}

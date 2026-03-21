@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-6-58619cc5","taskId":"2034623364714246144"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034623364705857536","title":"RAG 仪表盘可报告哪些指标"}
+
+event:done
+data:[DONE]
+

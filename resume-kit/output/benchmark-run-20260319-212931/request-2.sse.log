@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-2-9b0af033","taskId":"2034623320808271872"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034623320795688960","title":"RAG dashboard可报告的指标"}
+
+event:done
+data:[DONE]
+

@@ -1,0 +1,753 @@
+﻿{
+    "datasetName":  "resume-rag-eval-v2",
+    "topN":  3,
+    "cases":  [
+                  {
+                      "id":  "eval_001",
+                      "question":  "这个项目为什么不是普通聊天 Demo，而是更偏企业知识问答系统？",
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "企业知识问答",
+                                             "Demo",
+                                             "生产链路"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_002",
+                      "question":  "这个项目为什么能同时体现 Java 后端工程能力和 RAG 算法链路能力？",
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "Java",
+                                             "RAG",
+                                             "工程能力"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_003",
+                      "question":  "一次对话请求进入系统后，主链路大概会经过哪些阶段？",
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "限流",
+                                             "问题重写",
+                                             "SSE"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_004",
+                      "question":  "RAGChatController 之后，服务端会先做哪几步处理？",
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "对话记忆",
+                                             "意图识别",
+                                             "检索"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_005",
+                      "question":  "如果一个请求命中的其实是系统能力型意图，而不是知识库型意图，会走什么路径？",
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "Prompt",
+                                             "MCP",
+                                             "系统能力"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_006",
+                      "question":  "bootstrap、framework、infra-ai、frontend 在这个项目里分别负责什么？",
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "bootstrap",
+                                             "framework",
+                                             "infra-ai",
+                                             "frontend"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_007",
+                      "question":  "为什么说这个项目天然适合写进简历？",
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "resume_highlights"
+                                          ],
+                      "answerKeywords":  [
+                                             "量化",
+                                             "Java 后端",
+                                             "RAG"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_008",
+                      "question":  "这个项目里最值得量化的后端工程指标有哪些？",
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "QPS",
+                                             "P95",
+                                             "错误率"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_009",
+                      "question":  "这个项目里最值得量化的 RAG 效果指标有哪些？",
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "Top-3",
+                                             "关键词覆盖率",
+                                             "无文档回复率"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_010",
+                      "question":  "为什么这个项目看起来更像生产链路，而不是简单套壳调用大模型？",
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "知识库导入",
+                                             "限流",
+                                             "可观测"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_011",
+                      "question":  "这个项目的双路检索是由哪两条链路组成的？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "意图定向检索",
+                                             "全局向量检索",
+                                             "双路检索"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_012",
+                      "question":  "为什么做了意图识别之后，还需要全局向量兜底检索？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "意图误判",
+                                             "兜底",
+                                             "漏召回"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_013",
+                      "question":  "意图定向检索主要解决什么问题，全局向量检索又主要解决什么问题？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "意图",
+                                             "向量",
+                                             "召回"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_014",
+                      "question":  "在什么情况下系统会更依赖全局向量兜底，而不是只走意图定向检索？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "置信度不高",
+                                             "无明确意图",
+                                             "全局向量"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_015",
+                      "question":  "为什么进入检索前要先做问题重写？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "口语化",
+                                             "向量检索",
+                                             "重写"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_016",
+                      "question":  "为什么要把复合问题拆成多个子问题再检索？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "复合问题",
+                                             "子问题",
+                                             "意图"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_017",
+                      "question":  "问题重写和子问题拆分这一步，对复杂企业知识问答有什么实际价值？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "复杂企业知识问答",
+                                             "重写",
+                                             "拆分"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_018",
+                      "question":  "Rerank 在这条链路里是放在什么位置上的？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "候选 Chunk",
+                                             "重排",
+                                             "Rerank"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_019",
+                      "question":  "为什么描述 Rerank 收益时，更适合写 Top-N 命中率，而不是只说答案更准？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "Top-N",
+                                             "命中率",
+                                             "量化"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_020",
+                      "question":  "如果要量化双路检索和 Rerank 的收益，最推荐统计哪几项指标？",
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "Top-3",
+                                             "Top-5",
+                                             "关键词覆盖率",
+                                             "无文档回复率"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_021",
+                      "question":  "为什么 RAG 对话比普通 CRUD 接口更需要做全局排队限流？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "长连接",
+                                             "流式输出",
+                                             "资源消耗高"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_022",
+                      "question":  "如果不对 RAG SSE 对话做并发约束，最容易出现什么问题？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "雪崩",
+                                             "RT 抬升",
+                                             "SSE 连接堆积"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_023",
+                      "question":  "这个项目的全局排队限流方案核心用了哪些组件？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "Redis",
+                                             "Lua",
+                                             "ZSET"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_024",
+                      "question":  "进入请求先排队，再做执行许可控制，这两层设计各自解决什么问题？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "排队",
+                                             "执行许可",
+                                             "活跃 SSE"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_025",
+                      "question":  "为什么要用 Redis 原子脚本来保证 claim 行为一致？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "原子脚本",
+                                             "claim",
+                                             "脏状态"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_026",
+                      "question":  "这个项目里为什么会把会话记忆压缩也归到稳定性方案里？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "会话记忆压缩",
+                                             "Token",
+                                             "内存"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_027",
+                      "question":  "压测 RAG SSE 对话时，为什么不能只看 QPS？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "RT",
+                                             "TTFB",
+                                             "P95"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_028",
+                      "question":  "一次 SSE 请求的 RT 在这个项目里是怎么定义的？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "SSE 请求",
+                                             "发起到完成",
+                                             "总耗时"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_029",
+                      "question":  "为什么 TTFB 更能体现排队、检索和首轮模型响应速度？",
+                      "expectedDocKeys":  [
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "TTFB",
+                                             "排队",
+                                             "首包"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_030",
+                      "question":  "如果把这个限流方案写进简历，最该带上的几个性能词是什么？",
+                      "expectedDocKeys":  [
+                                              "queue_stability",
+                                              "resume_highlights"
+                                          ],
+                      "answerKeywords":  [
+                                             "QPS",
+                                             "P95",
+                                             "无 OOM",
+                                             "稳定性"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_031",
+                      "question":  "RAG 项目里为什么必须做 Trace 和 dashboard，而不能只靠日志排查？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "答案不准",
+                                             "系统变慢",
+                                             "可观测"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_032",
+                      "question":  "这个项目里的可观测体系主要想解决哪两类问题？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "答案不准",
+                                             "系统变慢",
+                                             "链路"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_033",
+                      "question":  "当前链路里重点可观测的 Trace 节点有哪些？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "query rewrite",
+                                             "intent resolve",
+                                             "retrieval",
+                                             "llm routing"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_034",
+                      "question":  "为什么 multi-channel retrieval 这个节点特别值得单独打点？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard",
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "多通道检索",
+                                             "耗时",
+                                             "返回 Chunk"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_035",
+                      "question":  "多通道检索节点现在会额外记录哪些信息？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "检索通道",
+                                             "耗时",
+                                             "文档 ID",
+                                             "分数"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_036",
+                      "question":  "Overview 看板里主要统计哪些业务量指标？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "总用户数",
+                                             "活跃用户数",
+                                             "会话数",
+                                             "消息数"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_037",
+                      "question":  "Performance 看板里主要统计哪些性能或质量指标？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "平均延迟",
+                                             "P95",
+                                             "成功率",
+                                             "错误率"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_038",
+                      "question":  "Trends 看板适合观察哪些趋势性数据？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "会话",
+                                             "消息",
+                                             "活跃用户",
+                                             "平均延迟"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_039",
+                      "question":  "为什么说现在可以直接基于 Trace 做离线评估，而不是手工看日志？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "Trace",
+                                             "离线评估",
+                                             "日志"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_040",
+                      "question":  "如果把 dashboard 指标写进简历，最容易被追问的是哪几类数据？",
+                      "expectedDocKeys":  [
+                                              "trace_dashboard",
+                                              "resume_highlights"
+                                          ],
+                      "answerKeywords":  [
+                                             "平均 RT",
+                                             "P95",
+                                             "成功率",
+                                             "无文档回复率"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_041",
+                      "question":  "知识库文档导入后，文件、数据库记录和向量索引各自是怎么分工的？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "对象存储",
+                                             "数据库",
+                                             "Milvus"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_042",
+                      "question":  "为什么上传后的文档不是同步处理，而是触发异步切块任务？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "异步",
+                                             "切块",
+                                             "向量化"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_043",
+                      "question":  "这个项目支持的两类文档处理模式分别是什么？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "chunk",
+                                             "pipeline",
+                                             "处理模式"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_044",
+                      "question":  "如果是简历演示类知识库，为什么更推荐结构感知切块？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "结构感知",
+                                             "段落语义",
+                                             "问答"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_045",
+                      "question":  "这套推荐的切块参数大概是什么量级？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "targetChars",
+                                             "maxChars",
+                                             "overlapChars"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_046",
+                      "question":  "为什么推荐 targetChars=900、maxChars=1200、overlapChars=120 这一组参数？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "关键描述",
+                                             "Chunk",
+                                             "结构化"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_047",
+                      "question":  "知识库导入完成后，第一时间要检查哪些状态和字段？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "success",
+                                             "chunkCount",
+                                             "resultChunkIds"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_048",
+                      "question":  "为什么说 file storage 和 vector index 分离后，后续重切块和重建索引会更容易？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking"
+                                          ],
+                      "answerKeywords":  [
+                                             "文件存储",
+                                             "向量索引",
+                                             "重建索引"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_049",
+                      "question":  "如果 Trace 里的 resultChunkIds 不能稳定命中目标文档，说明应该优先排哪一段？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking",
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "resultChunkIds",
+                                             "检索",
+                                             "切块"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_050",
+                      "question":  "为什么知识库导入链路本身也值得写进简历，而不只是写问答效果？",
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking",
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "导入链路",
+                                             "切块",
+                                             "向量检索"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_051",
+                      "question":  "如果简历里只能保留一条 RAG 效果亮点，最推荐写什么？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "双路检索",
+                                             "Rerank",
+                                             "Top-3"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_052",
+                      "question":  "如果简历里只能保留一条后端性能亮点，最推荐写什么？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "Redis",
+                                             "SSE",
+                                             "P95"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_053",
+                      "question":  "如果简历里只能保留一条可观测性亮点，最推荐写什么？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "Trace",
+                                             "Dashboard",
+                                             "成功率"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_054",
+                      "question":  "推荐亮点一最适合回答哪些面试问题？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights"
+                                          ],
+                      "answerKeywords":  [
+                                             "召回率",
+                                             "RAG",
+                                             "量化"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_055",
+                      "question":  "推荐亮点二最适合回答哪些面试问题？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights"
+                                          ],
+                      "answerKeywords":  [
+                                             "高并发",
+                                             "限流",
+                                             "Java 后端"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_056",
+                      "question":  "推荐亮点三最适合回答哪些面试问题？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights"
+                                          ],
+                      "answerKeywords":  [
+                                             "线上观测",
+                                             "排查",
+                                             "可维护"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_057",
+                      "question":  "如果面试深挖这个项目，回答顺序为什么建议先讲业务目标？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "project_overview"
+                                          ],
+                      "answerKeywords":  [
+                                             "业务目标",
+                                             "企业知识问答",
+                                             "聊天 Demo"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_058",
+                      "question":  "为什么回答完业务目标后，第二步应该讲链路设计？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "retrieval_pipeline"
+                                          ],
+                      "answerKeywords":  [
+                                             "重写",
+                                             "双路检索",
+                                             "流式回答"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_059",
+                      "question":  "为什么在讲完整体链路后，要再专门讲工程难点？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "queue_stability"
+                                          ],
+                      "answerKeywords":  [
+                                             "SSE",
+                                             "并发",
+                                             "限流"
+                                         ]
+                  },
+                  {
+                      "id":  "eval_060",
+                      "question":  "为什么这个项目只要把业务目标、链路、工程难点和数据四步讲顺，就会很像真实落地项目？",
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "project_overview",
+                                              "trace_dashboard"
+                                          ],
+                      "answerKeywords":  [
+                                             "业务目标",
+                                             "工程化",
+                                             "量化数据"
+                                         ]
+                  }
+              ]
+}

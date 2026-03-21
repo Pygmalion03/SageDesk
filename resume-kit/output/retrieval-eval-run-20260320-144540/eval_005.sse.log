@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_005-2f8a573f","taskId":"2034885515647442945"}
+
+event:cancel
+data:{"messageId":"null","title":"系统能力型意图路径"}
+
+event:done
+data:[DONE]
+

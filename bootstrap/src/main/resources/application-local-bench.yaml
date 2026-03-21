@@ -1,0 +1,17 @@
+ai:
+  chat:
+    default-model: qwen3-local-fast
+    deep-thinking-model: qwen3-local-fast
+
+  rerank:
+    default-model: rerank-noop
+
+rag:
+  benchmark:
+    chat-max-tokens: 128
+
+  rate-limit:
+    global:
+      max-concurrent: 2
+      max-wait-seconds: 10
+      lease-seconds: 120

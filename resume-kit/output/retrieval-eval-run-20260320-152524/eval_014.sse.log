@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_014-1661da57","taskId":"2034895116749037569"}
+
+event:cancel
+data:{"messageId":"null","title":"全局向量兜底依赖场景"}
+
+event:done
+data:[DONE]
+

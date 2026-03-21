@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_019-b3882ad4","taskId":"2034896871943626753"}
+
+event:cancel
+data:{"messageId":"null","title":"Rerank收益Top-N命中率更优"}
+
+event:done
+data:[DONE]
+

@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_018-b76f3fce","taskId":"2034896583417454593"}
+
+event:cancel
+data:{"messageId":"null","title":"Rerank 链路位置"}
+
+event:done
+data:[DONE]
+

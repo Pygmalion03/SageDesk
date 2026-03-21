@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_050-4f2cbe1c","taskId":"2034909769961103361"}
+
+event:cancel
+data:{"messageId":"null","title":"知识库导入链路简历不只问答效果"}
+
+event:done
+data:[DONE]
+

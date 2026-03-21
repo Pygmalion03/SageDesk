@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_044-efd592dc","taskId":"2034907735757217793"}
+
+event:cancel
+data:{"messageId":"null","title":"简历演示类知识库结构感知切块"}
+
+event:done
+data:[DONE]
+

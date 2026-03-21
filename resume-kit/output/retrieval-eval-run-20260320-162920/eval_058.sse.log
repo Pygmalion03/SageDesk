@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_058-cccf68e6","taskId":"2034912259783843841"}
+
+event:cancel
+data:{"messageId":"null","title":"业务目标后第二步链路设计"}
+
+event:done
+data:[DONE]
+

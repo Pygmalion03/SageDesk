@@ -1,0 +1,213 @@
+﻿{
+    "generatedAt":  "2026-03-19T20:41:50",
+    "baseUrl":  "http://localhost:9090/api/ragent",
+    "nameSuffix":  "demo3",
+    "knowledgeBases":  {
+                           "engineering_rag":  {
+                                                   "id":  "2034611304739680256",
+                                                   "name":  "Ragent Resume Engineering [demo3]",
+                                                   "embeddingModel":  "qwen-emb-8b",
+                                                   "collectionName":  "resumeragengineeringdemo3",
+                                                   "documents":  {
+                                                                     "project_overview":  {
+                                                                                              "id":  "2034611306857803776",
+                                                                                              "docName":  "01_project_overview.md",
+                                                                                              "status":  "success",
+                                                                                              "chunkCount":  1,
+                                                                                              "path":  "knowledge-docs/engineering-rag/01_project_overview.md"
+                                                                                          },
+                                                                     "retrieval_pipeline":  {
+                                                                                                "id":  "2034611315770699776",
+                                                                                                "docName":  "02_retrieval_pipeline.md",
+                                                                                                "status":  "success",
+                                                                                                "chunkCount":  1,
+                                                                                                "path":  "knowledge-docs/engineering-rag/02_retrieval_pipeline.md"
+                                                                                            },
+                                                                     "queue_stability":  {
+                                                                                             "id":  "2034611332950568960",
+                                                                                             "docName":  "03_queue_and_stability.md",
+                                                                                             "status":  "success",
+                                                                                             "chunkCount":  1,
+                                                                                             "path":  "knowledge-docs/engineering-rag/03_queue_and_stability.md"
+                                                                                         },
+                                                                     "trace_dashboard":  {
+                                                                                             "id":  "2034611341666332672",
+                                                                                             "docName":  "04_trace_dashboard.md",
+                                                                                             "status":  "success",
+                                                                                             "chunkCount":  1,
+                                                                                             "path":  "knowledge-docs/engineering-rag/04_trace_dashboard.md"
+                                                                                         },
+                                                                     "ingestion_chunking":  {
+                                                                                                "id":  "2034611350445010944",
+                                                                                                "docName":  "05_ingestion_and_chunking.md",
+                                                                                                "status":  "success",
+                                                                                                "chunkCount":  1,
+                                                                                                "path":  "knowledge-docs/engineering-rag/05_ingestion_and_chunking.md"
+                                                                                            },
+                                                                     "resume_highlights":  {
+                                                                                               "id":  "2034611359152386048",
+                                                                                               "docName":  "06_resume_highlights.md",
+                                                                                               "status":  "success",
+                                                                                               "chunkCount":  1,
+                                                                                               "path":  "knowledge-docs/engineering-rag/06_resume_highlights.md"
+                                                                                           }
+                                                                 }
+                                               }
+                       },
+    "documentIndex":  {
+                          "project_overview":  {
+                                                   "kbKey":  "engineering_rag",
+                                                   "kbId":  "2034611304739680256",
+                                                   "docId":  "2034611306857803776",
+                                                   "docName":  "01_project_overview.md",
+                                                   "status":  "success"
+                                               },
+                          "retrieval_pipeline":  {
+                                                     "kbKey":  "engineering_rag",
+                                                     "kbId":  "2034611304739680256",
+                                                     "docId":  "2034611315770699776",
+                                                     "docName":  "02_retrieval_pipeline.md",
+                                                     "status":  "success"
+                                                 },
+                          "queue_stability":  {
+                                                  "kbKey":  "engineering_rag",
+                                                  "kbId":  "2034611304739680256",
+                                                  "docId":  "2034611332950568960",
+                                                  "docName":  "03_queue_and_stability.md",
+                                                  "status":  "success"
+                                              },
+                          "trace_dashboard":  {
+                                                  "kbKey":  "engineering_rag",
+                                                  "kbId":  "2034611304739680256",
+                                                  "docId":  "2034611341666332672",
+                                                  "docName":  "04_trace_dashboard.md",
+                                                  "status":  "success"
+                                              },
+                          "ingestion_chunking":  {
+                                                     "kbKey":  "engineering_rag",
+                                                     "kbId":  "2034611304739680256",
+                                                     "docId":  "2034611350445010944",
+                                                     "docName":  "05_ingestion_and_chunking.md",
+                                                     "status":  "success"
+                                                 },
+                          "resume_highlights":  {
+                                                    "kbKey":  "engineering_rag",
+                                                    "kbId":  "2034611304739680256",
+                                                    "docId":  "2034611359152386048",
+                                                    "docName":  "06_resume_highlights.md",
+                                                    "status":  "success"
+                                                }
+                      },
+    "intentNodes":  {
+                        "resume_root":  {
+                                            "id":  "2034611367822012416",
+                                            "intentCode":  "resume.rag",
+                                            "name":  "RAG 项目总览",
+                                            "kbKey":  "engineering_rag"
+                                        },
+                        "architecture":  {
+                                             "id":  "2034611367859761152",
+                                             "intentCode":  "resume.rag.architecture",
+                                             "name":  "系统架构",
+                                             "kbKey":  "engineering_rag"
+                                         },
+                        "retrieval":  {
+                                          "id":  "2034611367897509888",
+                                          "intentCode":  "resume.rag.retrieval",
+                                          "name":  "检索与 Rerank",
+                                          "kbKey":  "engineering_rag"
+                                      },
+                        "stability":  {
+                                          "id":  "2034611367926870016",
+                                          "intentCode":  "resume.rag.stability",
+                                          "name":  "高并发稳定性",
+                                          "kbKey":  "engineering_rag"
+                                      },
+                        "observability":  {
+                                              "id":  "2034611367960424448",
+                                              "intentCode":  "resume.rag.observability",
+                                              "name":  "可观测与 Dashboard",
+                                              "kbKey":  "engineering_rag"
+                                          },
+                        "ingestion":  {
+                                          "id":  "2034611367993978880",
+                                          "intentCode":  "resume.rag.ingestion",
+                                          "name":  "知识库导入与切块",
+                                          "kbKey":  "engineering_rag"
+                                      },
+                        "retrieval_dual_channel":  {
+                                                       "id":  "2034611368023339008",
+                                                       "intentCode":  "resume.rag.retrieval.dual_channel",
+                                                       "name":  "双路检索",
+                                                       "kbKey":  "engineering_rag"
+                                                   },
+                        "retrieval_rerank":  {
+                                                 "id":  "2034611368061087744",
+                                                 "intentCode":  "resume.rag.retrieval.rerank",
+                                                 "name":  "Rerank 与评估",
+                                                 "kbKey":  "engineering_rag"
+                                             },
+                        "stability_queue":  {
+                                                "id":  "2034611368090447872",
+                                                "intentCode":  "resume.rag.stability.queue",
+                                                "name":  "排队限流",
+                                                "kbKey":  "engineering_rag"
+                                            },
+                        "stability_benchmark":  {
+                                                    "id":  "2034611368124002304",
+                                                    "intentCode":  "resume.rag.stability.benchmark",
+                                                    "name":  "压测口径",
+                                                    "kbKey":  "engineering_rag"
+                                                },
+                        "metrics_dashboard":  {
+                                                  "id":  "2034611368153362432",
+                                                  "intentCode":  "resume.rag.observability.dashboard",
+                                                  "name":  "指标看板",
+                                                  "kbKey":  "engineering_rag"
+                                              },
+                        "metrics_trace":  {
+                                              "id":  "2034611368186916864",
+                                              "intentCode":  "resume.rag.observability.trace",
+                                              "name":  "链路 Trace",
+                                              "kbKey":  "engineering_rag"
+                                          }
+                    },
+    "sampleQuestions":  {
+                            "sample_001":  {
+                                               "id":  "2034611368254025728",
+                                               "title":  "双路检索怎么做",
+                                               "description":  "聚焦召回率、问题重写和 Rerank。",
+                                               "question":  "这个项目里的双路检索和 Rerank 链路是怎么设计的？"
+                                           },
+                            "sample_002":  {
+                                               "id":  "2034611368283385856",
+                                               "title":  "高并发如何稳定",
+                                               "description":  "聚焦 Redis 限流、排队和 SSE 保护。",
+                                               "question":  "如果高并发用户同时发起 RAG 对话，你是怎么保证服务稳定性的？"
+                                           },
+                            "sample_003":  {
+                                               "id":  "2034611368304357376",
+                                               "title":  "数据怎么量化",
+                                               "description":  "聚焦召回率、RT、P95 和成功率。",
+                                               "question":  "这个项目里哪些指标最适合量化后写到简历里？"
+                                           },
+                            "sample_004":  {
+                                               "id":  "2034611368329523200",
+                                               "title":  "Dashboard 看什么",
+                                               "description":  "聚焦可观测体系和运营看板。",
+                                               "question":  "这个项目自带 dashboard 可以统计哪些核心指标？"
+                                           },
+                            "sample_005":  {
+                                               "id":  "2034611368354689024",
+                                               "title":  "知识库怎么导入",
+                                               "description":  "聚焦文档切块、向量化和导入流程。",
+                                               "question":  "知识库文档上传后，后端是怎么做切块和向量索引的？"
+                                           },
+                            "sample_006":  {
+                                               "id":  "2034611368379854848",
+                                               "title":  "简历怎么表达",
+                                               "description":  "聚焦项目亮点改写成简历 bullet。",
+                                               "question":  "如果把这个项目写进简历，双路检索和限流稳定性应该怎么表达？"
+                                           }
+                        }
+}

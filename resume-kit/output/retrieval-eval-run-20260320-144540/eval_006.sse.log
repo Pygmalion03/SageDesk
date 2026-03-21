@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_006-957b558d","taskId":"2034885964945481729"}
+
+event:cancel
+data:{"messageId":"null","title":"项目组件分工"}
+
+event:done
+data:[DONE]
+

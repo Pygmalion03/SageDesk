@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_002-c4e7771b","taskId":"2034883105554227201"}
+
+event:cancel
+data:{"messageId":"null","title":"Java后端工程能力和RAG算法链路能力同时体现"}
+
+event:done
+data:[DONE]
+

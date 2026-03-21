@@ -21,6 +21,8 @@ import com.alibaba.ttl.TransmittableThreadLocal;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * RAG Trace 上下文
@@ -31,6 +33,7 @@ public final class RagTraceContext {
     private static final TransmittableThreadLocal<String> TRACE_ID = new TransmittableThreadLocal<>();
     private static final TransmittableThreadLocal<String> TASK_ID = new TransmittableThreadLocal<>();
     private static final TransmittableThreadLocal<Deque<String>> NODE_STACK = new TransmittableThreadLocal<>();
+    private static final TransmittableThreadLocal<Deque<Map<String, Object>>> NODE_EXTRA_STACK = new TransmittableThreadLocal<>();
 
     private RagTraceContext() {
     }
@@ -62,28 +65,75 @@ public final class RagTraceContext {
     }
 
     public static void pushNode(String nodeId) {
-        Deque<String> stack = NODE_STACK.get();
-        if (stack == null) {
-            stack = new ArrayDeque<>();
-            NODE_STACK.set(stack);
+        Deque<String> nodeStack = NODE_STACK.get();
+        if (nodeStack == null) {
+            nodeStack = new ArrayDeque<>();
+            NODE_STACK.set(nodeStack);
         }
-        stack.push(nodeId);
+        nodeStack.push(nodeId);
+
+        Deque<Map<String, Object>> extraStack = NODE_EXTRA_STACK.get();
+        if (extraStack == null) {
+            extraStack = new ArrayDeque<>();
+            NODE_EXTRA_STACK.set(extraStack);
+        }
+        extraStack.push(new LinkedHashMap<>());
     }
 
     public static void popNode() {
-        Deque<String> stack = NODE_STACK.get();
-        if (stack == null || stack.isEmpty()) {
+        Deque<String> nodeStack = NODE_STACK.get();
+        if (nodeStack == null || nodeStack.isEmpty()) {
             return;
         }
-        stack.pop();
-        if (stack.isEmpty()) {
+        nodeStack.pop();
+        if (nodeStack.isEmpty()) {
             NODE_STACK.remove();
         }
+
+        Deque<Map<String, Object>> extraStack = NODE_EXTRA_STACK.get();
+        if (extraStack == null || extraStack.isEmpty()) {
+            return;
+        }
+        extraStack.pop();
+        if (extraStack.isEmpty()) {
+            NODE_EXTRA_STACK.remove();
+        }
+    }
+
+    public static void putNodeExtra(String key, Object value) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        Deque<Map<String, Object>> extraStack = NODE_EXTRA_STACK.get();
+        if (extraStack == null || extraStack.isEmpty()) {
+            return;
+        }
+        extraStack.peek().put(key, value);
+    }
+
+    public static void putAllNodeExtra(Map<String, Object> extraData) {
+        if (extraData == null || extraData.isEmpty()) {
+            return;
+        }
+        Deque<Map<String, Object>> extraStack = NODE_EXTRA_STACK.get();
+        if (extraStack == null || extraStack.isEmpty()) {
+            return;
+        }
+        extraStack.peek().putAll(extraData);
+    }
+
+    public static Map<String, Object> currentNodeExtraData() {
+        Deque<Map<String, Object>> extraStack = NODE_EXTRA_STACK.get();
+        if (extraStack == null || extraStack.isEmpty()) {
+            return Map.of();
+        }
+        return new LinkedHashMap<>(extraStack.peek());
     }
 
     public static void clear() {
         TRACE_ID.remove();
         TASK_ID.remove();
         NODE_STACK.remove();
+        NODE_EXTRA_STACK.remove();
     }
 }

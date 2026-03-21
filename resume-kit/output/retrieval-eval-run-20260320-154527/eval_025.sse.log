@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_025-bd3e04c0","taskId":"2034900642182520833"}
+
+event:cancel
+data:{"messageId":"null","title":"Redis原子脚本保证claim行为一致"}
+
+event:done
+data:[DONE]
+

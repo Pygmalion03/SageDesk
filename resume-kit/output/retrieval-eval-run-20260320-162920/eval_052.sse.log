@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_052-88e6e205","taskId":"2034910429364412417"}
+
+event:cancel
+data:{"messageId":"null","title":"后端性能亮点简历推荐"}
+
+event:done
+data:[DONE]
+

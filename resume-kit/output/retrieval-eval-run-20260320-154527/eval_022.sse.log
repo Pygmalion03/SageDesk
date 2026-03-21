@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_022-37c5bc69","taskId":"2034899445102993409"}
+
+event:cancel
+data:{"messageId":"null","title":"RAG SSE无并发约束"}
+
+event:done
+data:[DONE]
+

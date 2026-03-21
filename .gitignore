@@ -35,6 +35,7 @@ build/
 ### VS Code ###
 .vscode/
 scripts/logs/
+.bench-runtime2/
 
 ### Frontend ###
 node_modules/

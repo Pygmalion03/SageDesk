@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_013-f643308e","taskId":"2034894676129013761"}
+
+event:cancel
+data:{"messageId":"null","title":"意图定向检索和全局向量检索"}
+
+event:done
+data:[DONE]
+
