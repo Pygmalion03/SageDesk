@@ -20,32 +20,34 @@ package com.nageoffer.ai.ragent.ingestion.node;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.core.chunk.ChunkingOptions;
+import com.nageoffer.ai.ragent.core.chunk.ChunkingStrategy;
 import com.nageoffer.ai.ragent.core.chunk.ChunkingStrategyFactory;
 import com.nageoffer.ai.ragent.core.chunk.VectorChunk;
-import com.nageoffer.ai.ragent.core.chunk.ChunkingStrategy;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.ingestion.domain.context.IngestionContext;
+import com.nageoffer.ai.ragent.ingestion.domain.context.StructuredDocument;
 import com.nageoffer.ai.ragent.ingestion.domain.enums.IngestionNodeType;
 import com.nageoffer.ai.ragent.ingestion.domain.pipeline.NodeConfig;
 import com.nageoffer.ai.ragent.ingestion.domain.result.NodeResult;
 import com.nageoffer.ai.ragent.ingestion.domain.settings.ChunkerSettings;
+import com.nageoffer.ai.ragent.infra.embedding.EmbeddingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 文本分块节点
- * 负责将输入的完整文本（原始文本或增强后的文本）按照指定的策略切分成多个较小的文本块（Chunk）
- */
 @Component
 @RequiredArgsConstructor
 public class ChunkerNode implements IngestionNode {
 
     private final ObjectMapper objectMapper;
     private final ChunkingStrategyFactory chunkingStrategyFactory;
+    private final EmbeddingService embeddingService;
 
     @Override
     public String getNodeType() {
@@ -56,20 +58,22 @@ public class ChunkerNode implements IngestionNode {
     public NodeResult execute(IngestionContext context, NodeConfig config) {
         String text = StringUtils.hasText(context.getEnhancedText()) ? context.getEnhancedText() : context.getRawText();
         if (!StringUtils.hasText(text)) {
-            return NodeResult.fail(new ClientException("可分块文本为空"));
+            return NodeResult.fail(new ClientException("No text available for chunking"));
         }
         ChunkerSettings settings = parseSettings(config.getSettings());
         ChunkingStrategy chunker = chunkingStrategyFactory.requireStrategy(settings.getStrategy());
         if (chunker == null) {
-            return NodeResult.fail(new ClientException("未找到分块策略: " + settings.getStrategy()));
+            return NodeResult.fail(new ClientException("Chunk strategy not found: " + settings.getStrategy()));
         }
 
         ChunkingOptions chunkConfig = convertToChunkConfig(settings);
         List<VectorChunk> results = chunker.chunk(text, chunkConfig);
         List<VectorChunk> chunks = convertToVectorChunks(results);
+        List<VectorChunk> visualChunks = buildVisualChunks(context.getDocument(), settings);
 
         context.setChunks(chunks);
-        return NodeResult.ok("已分块 " + chunks.size() + " 段");
+        context.setVisualChunks(visualChunks);
+        return NodeResult.ok("Chunked text=" + chunks.size() + ", visual=" + visualChunks.size());
     }
 
     private ChunkingOptions convertToChunkConfig(ChunkerSettings settings) {
@@ -93,13 +97,108 @@ public class ChunkerNode implements IngestionNode {
     }
 
     private ChunkerSettings parseSettings(JsonNode node) {
-        ChunkerSettings settings = objectMapper.convertValue(node, ChunkerSettings.class);
+        ChunkerSettings settings = node == null || node.isNull()
+                ? ChunkerSettings.builder().build()
+                : objectMapper.convertValue(node, ChunkerSettings.class);
         if (settings.getChunkSize() == null || settings.getChunkSize() <= 0) {
             settings.setChunkSize(512);
         }
         if (settings.getOverlapSize() == null || settings.getOverlapSize() < 0) {
             settings.setOverlapSize(128);
         }
+        if (settings.getVisualMaxLength() == null || settings.getVisualMaxLength() <= 0) {
+            settings.setVisualMaxLength(2000);
+        }
         return settings;
+    }
+
+    private List<VectorChunk> buildVisualChunks(StructuredDocument document, ChunkerSettings settings) {
+        if (document == null || document.getVisualBlocks() == null || document.getVisualBlocks().isEmpty()) {
+            return List.of();
+        }
+
+        List<VectorChunk> visualChunks = new ArrayList<>();
+        int index = 0;
+        for (StructuredDocument.VisualBlock block : document.getVisualBlocks()) {
+            String content = buildVisualContent(block, settings.getVisualMaxLength());
+            if (!StringUtils.hasText(content)) {
+                continue;
+            }
+            visualChunks.add(VectorChunk.builder()
+                    .chunkId(block.getBlockId())
+                    .index(index++)
+                    .content(content)
+                    .metadata(buildVisualMetadata(block))
+                    .build());
+        }
+
+        attachVisualEmbeddings(visualChunks, settings.getVisualEmbeddingModel());
+        return visualChunks;
+    }
+
+    private String buildVisualContent(StructuredDocument.VisualBlock block, int maxLength) {
+        List<String> parts = new ArrayList<>(6);
+        appendPart(parts, block.getBlockType());
+        appendPart(parts, block.getSummary());
+        appendPart(parts, block.getMarkdown());
+        appendPart(parts, block.getText());
+        appendPart(parts, block.getNearbyContext());
+        appendPart(parts, block.getImageUri());
+
+        String content = String.join("\n\n", parts).trim();
+        if (!StringUtils.hasText(content)) {
+            return "";
+        }
+        if (maxLength > 0 && content.length() > maxLength) {
+            return content.substring(0, maxLength);
+        }
+        return content;
+    }
+
+    private Map<String, Object> buildVisualMetadata(StructuredDocument.VisualBlock block) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("content_type", "visual");
+        metadata.put("block_type", block.getBlockType());
+        metadata.put("block_id", block.getBlockId());
+        metadata.put("page_no", block.getPageNo());
+        metadata.put("image_uri", block.getImageUri());
+        metadata.put("summary", block.getSummary());
+        if (block.getBoundingBox() != null) {
+            metadata.put("bbox", block.getBoundingBox());
+        }
+        if (block.getMetadata() != null && !block.getMetadata().isEmpty()) {
+            metadata.putAll(block.getMetadata());
+        }
+        return metadata;
+    }
+
+    private void attachVisualEmbeddings(List<VectorChunk> visualChunks, String modelId) {
+        if (visualChunks == null || visualChunks.isEmpty()) {
+            return;
+        }
+        List<String> texts = visualChunks.stream().map(VectorChunk::getContent).toList();
+        List<List<Float>> vectors = StringUtils.hasText(modelId)
+                ? embeddingService.embedBatch(texts, modelId)
+                : embeddingService.embedBatch(texts);
+        if (vectors == null || vectors.size() != visualChunks.size()) {
+            throw new ClientException("Visual chunk embeddings size mismatch");
+        }
+        for (int i = 0; i < visualChunks.size(); i++) {
+            List<Float> row = vectors.get(i);
+            if (row == null || row.isEmpty()) {
+                throw new ClientException("Visual chunk embedding is missing at index " + i);
+            }
+            float[] vector = new float[row.size()];
+            for (int j = 0; j < row.size(); j++) {
+                vector[j] = row.get(j);
+            }
+            visualChunks.get(i).setEmbedding(vector);
+        }
+    }
+
+    private void appendPart(List<String> parts, String value) {
+        if (StringUtils.hasText(value)) {
+            parts.add(value.trim());
+        }
     }
 }

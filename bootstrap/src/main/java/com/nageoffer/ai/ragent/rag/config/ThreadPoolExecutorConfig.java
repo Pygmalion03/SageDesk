@@ -210,4 +210,23 @@ public class ThreadPoolExecutorConfig {
         );
         return TtlExecutors.getTtlExecutor(executor);
     }
+
+    /**
+     * ingestion 后台任务线程池
+     */
+    @Bean
+    public Executor ingestionTaskExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                1,
+                Math.max(2, CPU_COUNT >> 1),
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(50),
+                ThreadFactoryBuilder.create()
+                        .setNamePrefix("ingestion_task_executor_")
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
+        return TtlExecutors.getTtlExecutor(executor);
+    }
 }

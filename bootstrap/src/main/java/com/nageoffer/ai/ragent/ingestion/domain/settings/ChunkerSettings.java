@@ -55,4 +55,8 @@ public class ChunkerSettings {
      * 用于指定文本切分的边界字符
      */
     private String separator;
+
+    private String visualEmbeddingModel;
+
+    private Integer visualMaxLength;
 }

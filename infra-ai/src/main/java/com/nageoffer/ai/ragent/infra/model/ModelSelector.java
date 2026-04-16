@@ -33,7 +33,6 @@ import java.util.stream.Collectors;
 
 /**
  * 模型选择器
- * 负责根据配置和当前需求（如普通对话、深度思考、Embedding等）选择合适的模型候选列表
  */
 @Slf4j
 @Component
@@ -44,13 +43,19 @@ public class ModelSelector {
     private final ModelHealthStore healthStore;
 
     public List<ModelTarget> selectChatCandidates(Boolean deepThinking) {
+        return selectChatCandidates(deepThinking, false, null);
+    }
+
+    public List<ModelTarget> selectChatCandidates(Boolean deepThinking,
+                                                  boolean multimodal,
+                                                  String preferredModelId) {
         AIModelProperties.ModelGroup group = properties.getChat();
         if (group == null) {
             return List.of();
         }
 
-        String firstChoiceModelId = resolveFirstChoiceModel(group, deepThinking);
-        return selectCandidates(group, firstChoiceModelId, deepThinking);
+        String firstChoiceModelId = resolveFirstChoiceModel(group, deepThinking, preferredModelId);
+        return selectCandidates(group, firstChoiceModelId, deepThinking, multimodal);
     }
 
     public List<ModelTarget> selectEmbeddingCandidates() {
@@ -66,12 +71,12 @@ public class ModelSelector {
         return targets.isEmpty() ? null : targets.get(0);
     }
 
-    /**
-     * 根据模式解析首选模型
-     * - 深度思考模式：优先使用 deep-thinking-model
-     * - 普通模式：使用 default-model
-     */
-    private String resolveFirstChoiceModel(AIModelProperties.ModelGroup group, Boolean deepThinking) {
+    private String resolveFirstChoiceModel(AIModelProperties.ModelGroup group,
+                                           Boolean deepThinking,
+                                           String preferredModelId) {
+        if (StrUtil.isNotBlank(preferredModelId)) {
+            return preferredModelId;
+        }
         if (Boolean.TRUE.equals(deepThinking)) {
             String deepModel = group.getDeepThinkingModel();
             if (StrUtil.isNotBlank(deepModel)) {
@@ -85,30 +90,32 @@ public class ModelSelector {
         if (group == null) {
             return List.of();
         }
-        return selectCandidates(group, group.getDefaultModel(), null);
+        return selectCandidates(group, group.getDefaultModel(), null, false);
     }
 
-    private List<ModelTarget> selectCandidates(AIModelProperties.ModelGroup group, String firstChoiceModelId, Boolean deepThinking) {
+    private List<ModelTarget> selectCandidates(AIModelProperties.ModelGroup group,
+                                               String firstChoiceModelId,
+                                               Boolean deepThinking,
+                                               boolean multimodal) {
         if (group == null || group.getCandidates() == null) {
             return List.of();
         }
 
         List<AIModelProperties.ModelCandidate> orderedCandidates =
-                prepareOrderedCandidates(group.getCandidates(), firstChoiceModelId, deepThinking);
+                prepareOrderedCandidates(group.getCandidates(), firstChoiceModelId, deepThinking, multimodal);
 
         return buildAvailableTargets(orderedCandidates);
     }
 
-    /**
-     * 准备排序后的候选模型列表
-     */
     private List<AIModelProperties.ModelCandidate> prepareOrderedCandidates(
             List<AIModelProperties.ModelCandidate> candidates,
             String firstChoiceModelId,
-            Boolean deepThinking) {
+            Boolean deepThinking,
+            boolean multimodal) {
         List<AIModelProperties.ModelCandidate> enabled = candidates.stream()
                 .filter(c -> c != null && !Boolean.FALSE.equals(c.getEnabled()))
                 .filter(c -> !Boolean.TRUE.equals(deepThinking) || Boolean.TRUE.equals(c.getSupportsThinking()))
+                .filter(c -> !multimodal || Boolean.TRUE.equals(c.getSupportsMultimodal()))
                 .sorted(Comparator
                         .comparing(AIModelProperties.ModelCandidate::getPriority,
                                 Comparator.nullsLast(Integer::compareTo))
@@ -121,44 +128,44 @@ public class ModelSelector {
             return enabled;
         }
 
-        promoteFirstChoiceModel(enabled, firstChoiceModelId);
+        if (multimodal && enabled.isEmpty()) {
+            log.warn("多模态对话没有可用候选模型");
+            return enabled;
+        }
 
+        promoteFirstChoiceModel(enabled, firstChoiceModelId);
         return enabled;
     }
 
-    private void promoteFirstChoiceModel(
-            List<AIModelProperties.ModelCandidate> candidates,
-            String firstChoiceModelId) {
-
+    private void promoteFirstChoiceModel(List<AIModelProperties.ModelCandidate> candidates,
+                                         String firstChoiceModelId) {
         if (StrUtil.isBlank(firstChoiceModelId)) {
             return;
         }
 
         AIModelProperties.ModelCandidate firstChoice = findCandidate(candidates, firstChoiceModelId);
+        if (firstChoice == null) {
+            return;
+        }
         candidates.remove(firstChoice);
         candidates.add(0, firstChoice);
     }
 
-    private List<ModelTarget> buildAvailableTargets(
-            List<AIModelProperties.ModelCandidate> candidates) {
-
+    private List<ModelTarget> buildAvailableTargets(List<AIModelProperties.ModelCandidate> candidates) {
         Map<String, AIModelProperties.ProviderConfig> providers = properties.getProviders();
-
         return candidates.stream()
                 .map(candidate -> buildModelTarget(candidate, providers))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
-    private ModelTarget buildModelTarget(AIModelProperties.ModelCandidate candidate, Map<String, AIModelProperties.ProviderConfig> providers) {
+    private ModelTarget buildModelTarget(AIModelProperties.ModelCandidate candidate,
+                                         Map<String, AIModelProperties.ProviderConfig> providers) {
         String modelId = resolveId(candidate);
-
-        // 检查熔断状态
         if (healthStore.isOpen(modelId)) {
             return null;
         }
 
-        // 验证 provider 配置
         AIModelProperties.ProviderConfig provider = providers.get(candidate.getProvider());
         if (provider == null && !ModelProvider.NOOP.matches(candidate.getProvider())) {
             log.warn("Provider配置缺失: provider={}, modelId={}",
@@ -169,10 +176,8 @@ public class ModelSelector {
         return new ModelTarget(modelId, candidate, provider);
     }
 
-    private AIModelProperties.ModelCandidate findCandidate(
-            List<AIModelProperties.ModelCandidate> candidates,
-            String id) {
-
+    private AIModelProperties.ModelCandidate findCandidate(List<AIModelProperties.ModelCandidate> candidates,
+                                                           String id) {
         return candidates.stream()
                 .filter(c -> id.equals(c.getId()))
                 .findFirst()

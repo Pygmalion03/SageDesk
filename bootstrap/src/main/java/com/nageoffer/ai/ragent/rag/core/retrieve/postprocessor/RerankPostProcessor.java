@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.rag.core.retrieve.postprocessor;
 
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
 import com.nageoffer.ai.ragent.infra.rerank.RerankService;
+import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannelResult;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchContext;
 import lombok.RequiredArgsConstructor;
@@ -27,18 +28,13 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Rerank 后置处理器
- * <p>
- * 使用 Rerank 模型对结果进行重排序
- * 这是最后一个处理器，输出最终的 Top-K 结果
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class RerankPostProcessor implements SearchResultPostProcessor {
 
     private final RerankService rerankService;
+    private final SearchChannelProperties searchChannelProperties;
 
     @Override
     public String getName() {
@@ -47,12 +43,12 @@ public class RerankPostProcessor implements SearchResultPostProcessor {
 
     @Override
     public int getOrder() {
-        return 10;  // 最后执行
+        return 10;
     }
 
     @Override
     public boolean isEnabled(SearchContext context) {
-        return true;  // 始终启用
+        return true;
     }
 
     @Override
@@ -60,14 +56,15 @@ public class RerankPostProcessor implements SearchResultPostProcessor {
                                         List<SearchChannelResult> results,
                                         SearchContext context) {
         if (chunks.isEmpty()) {
-            log.info("Chunk 列表为空，跳过 Rerank");
+            log.info("Skip rerank because candidate chunks are empty");
             return chunks;
         }
 
-        return rerankService.rerank(
-                context.getMainQuestion(),
-                chunks,
-                context.getTopK()
-        );
+        boolean hasVisualChunk = chunks.stream().anyMatch(RetrievedChunk::isVisual);
+        if (hasVisualChunk) {
+            String rerankModel = searchChannelProperties.getChannels().getVisualGlobal().getRerankModel();
+            return rerankService.rerank(context.getMainQuestion(), chunks, context.getTopK(), rerankModel);
+        }
+        return rerankService.rerank(context.getMainQuestion(), chunks, context.getTopK());
     }
 }

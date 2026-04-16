@@ -36,6 +36,10 @@ build/
 .vscode/
 scripts/logs/
 .bench-runtime2/
+.venv-paddle-bridge/
+scripts/paddle_bridge_runtime/
+scripts/paddle_api_runtime/
+scripts/ingestion_task_runtime/
 
 ### Frontend ###
 node_modules/

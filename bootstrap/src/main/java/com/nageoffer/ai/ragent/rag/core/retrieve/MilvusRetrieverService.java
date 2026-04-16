@@ -18,9 +18,9 @@
 package com.nageoffer.ai.ragent.rag.core.retrieve;
 
 import cn.hutool.core.util.StrUtil;
-import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
 import com.nageoffer.ai.ragent.infra.embedding.EmbeddingService;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import io.milvus.v2.client.MilvusClientV2;
 import io.milvus.v2.service.vector.request.SearchReq;
 import io.milvus.v2.service.vector.request.data.BaseVector;
@@ -29,6 +29,7 @@ import io.milvus.v2.service.vector.response.SearchResp;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -47,11 +48,11 @@ public class MilvusRetrieverService implements RetrieverService {
 
     @Override
     public List<RetrievedChunk> retrieve(RetrieveRequest retrieveParam) {
-        List<Float> emb = embeddingService.embed(retrieveParam.getQuery());
+        List<Float> emb = StringUtils.hasText(retrieveParam.getEmbeddingModel())
+                ? embeddingService.embed(retrieveParam.getQuery(), retrieveParam.getEmbeddingModel())
+                : embeddingService.embed(retrieveParam.getQuery());
         float[] vec = toArray(emb);
-
         float[] norm = normalize(vec);
-
         return retrieveByVector(norm, retrieveParam);
     }
 
@@ -81,28 +82,47 @@ public class MilvusRetrieverService implements RetrieverService {
             return List.of();
         }
 
-        // TODO 需确认后续是否对分数较低数据进行限制，限制多少合适？0.65？
-        // TODO 如果本次查询分数都较高，是否应该扩大查询范围？1.5倍？
         return results.get(0).stream()
                 .map(r -> new RetrievedChunk(
                         Objects.toString(r.getEntity().get("doc_id"), ""),
                         Objects.toString(r.getEntity().get("content"), ""),
-                        r.getScore()))
+                        r.getScore(),
+                        extractMetadata(r.getEntity().get("metadata"))
+                ))
                 .collect(Collectors.toList());
+    }
+
+    private Map<String, Object> extractMetadata(Object rawMetadata) {
+        if (rawMetadata instanceof Map<?, ?> map) {
+            Map<String, Object> metadata = new HashMap<>();
+            map.forEach((key, value) -> {
+                if (key != null) {
+                    metadata.put(String.valueOf(key), value);
+                }
+            });
+            return metadata;
+        }
+        return new HashMap<>();
     }
 
     private static float[] toArray(List<Float> list) {
         float[] arr = new float[list.size()];
-        for (int i = 0; i < list.size(); i++) arr[i] = list.get(i);
+        for (int i = 0; i < list.size(); i++) {
+            arr[i] = list.get(i);
+        }
         return arr;
     }
 
     private static float[] normalize(float[] v) {
         double sum = 0.0;
-        for (float x : v) sum += x * x;
+        for (float x : v) {
+            sum += x * x;
+        }
         double len = Math.sqrt(sum);
         float[] nv = new float[v.length];
-        for (int i = 0; i < v.length; i++) nv[i] = (float) (v[i] / len);
+        for (int i = 0; i < v.length; i++) {
+            nv[i] = (float) (v[i] / len);
+        }
         return nv;
     }
 }

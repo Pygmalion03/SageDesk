@@ -77,4 +77,6 @@ public interface IngestionPipelineService {
      * @return 流水线定义
      */
     PipelineDefinition getDefinition(String pipelineId);
+
+    String getOrCreateVisualDefaultPipelineId();
 }

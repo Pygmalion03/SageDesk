@@ -47,4 +47,10 @@ public class IndexerSettings {
      * 指定哪些元数据字段应被存储到向量数据库中
      */
     private List<String> metadataFields;
+
+    private Boolean imageIndexEnabled;
+
+    private String imageCollectionName;
+
+    private List<String> imageMetadataFields;
 }

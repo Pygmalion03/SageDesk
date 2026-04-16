@@ -36,4 +36,8 @@ public interface RerankService {
      * @return 经过精排后的前 topN 条文档
      */
     List<RetrievedChunk> rerank(String query, List<RetrievedChunk> candidates, int topN);
+
+    default List<RetrievedChunk> rerank(String query, List<RetrievedChunk> candidates, int topN, String modelId) {
+        return rerank(query, candidates, topN);
+    }
 }

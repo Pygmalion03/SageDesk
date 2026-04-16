@@ -34,6 +34,7 @@ import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentMapper;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.framework.exception.ServiceException;
+import com.nageoffer.ai.ragent.infra.model.EmbeddingModelDimensionResolver;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceSpec;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
@@ -62,6 +63,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     private final KnowledgeDocumentMapper knowledgeDocumentMapper;
     private final VectorStoreAdmin vectorStoreAdmin;
     private final S3Client s3Client;
+    private final EmbeddingModelDimensionResolver dimensionResolver;
 
     @Transactional
     @Override
@@ -106,6 +108,7 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
                         .logicalName(requestParam.getCollectionName())
                         .build())
                 .remark(requestParam.getName())
+                .dimension(dimensionResolver.resolveDimension(requestParam.getEmbeddingModel()))
                 .build();
         vectorStoreAdmin.ensureVectorSpace(spaceSpec);
 

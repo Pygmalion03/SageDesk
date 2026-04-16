@@ -199,12 +199,40 @@ public class BaiLianChatClient implements ChatClient {
             for (com.nageoffer.ai.ragent.framework.convention.ChatMessage m : messages) {
                 JsonObject msg = new JsonObject();
                 msg.addProperty("role", toOpenAiRole(m.getRole()));
-                msg.addProperty("content", m.getContent());
+                if (m.hasParts()) {
+                    msg.add("content", buildContentParts(m));
+                } else {
+                    msg.addProperty("content", m.getContent());
+                }
                 arr.add(msg);
             }
         }
 
         return arr;
+    }
+
+    private JsonArray buildContentParts(com.nageoffer.ai.ragent.framework.convention.ChatMessage message) {
+        JsonArray parts = new JsonArray();
+        for (com.nageoffer.ai.ragent.framework.convention.ChatMessage.ContentPart part : message.getParts()) {
+            if (part == null || part.getType() == null) {
+                continue;
+            }
+            JsonObject payload = new JsonObject();
+            switch (part.getType()) {
+                case TEXT -> {
+                    payload.addProperty("type", "text");
+                    payload.addProperty("text", part.getText());
+                }
+                case IMAGE_URL -> {
+                    payload.addProperty("type", "image_url");
+                    JsonObject imageUrl = new JsonObject();
+                    imageUrl.addProperty("url", part.getImageUrl());
+                    payload.add("image_url", imageUrl);
+                }
+            }
+            parts.add(payload);
+        }
+        return parts;
     }
 
     private String toOpenAiRole(com.nageoffer.ai.ragent.framework.convention.ChatMessage.Role role) {
@@ -279,7 +307,30 @@ public class BaiLianChatClient implements ChatClient {
         if (message == null || !message.has("content") || message.get("content").isJsonNull()) {
             throw new ModelClientException("百炼响应缺少 content", ModelClientErrorType.INVALID_RESPONSE, null);
         }
-        return message.get("content").getAsString();
+        return extractMessageContent(message.get("content"));
+    }
+
+    private String extractMessageContent(com.google.gson.JsonElement content) {
+        if (content == null || content.isJsonNull()) {
+            throw new ModelClientException("鐧剧偧鍝嶅簲缂哄皯 content", ModelClientErrorType.INVALID_RESPONSE, null);
+        }
+        if (content.isJsonPrimitive()) {
+            return content.getAsString();
+        }
+        if (content.isJsonArray()) {
+            StringBuilder builder = new StringBuilder();
+            for (com.google.gson.JsonElement element : content.getAsJsonArray()) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject obj = element.getAsJsonObject();
+                if (obj.has("text") && !obj.get("text").isJsonNull()) {
+                    builder.append(obj.get("text").getAsString());
+                }
+            }
+            return builder.toString();
+        }
+        throw new ModelClientException("鐧剧偧 content 鏍煎紡涓嶆敮鎸?", ModelClientErrorType.INVALID_RESPONSE, null);
     }
 
     private ModelClientErrorType classifyStatus(int status) {

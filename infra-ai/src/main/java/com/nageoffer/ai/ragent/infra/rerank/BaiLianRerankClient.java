@@ -162,7 +162,7 @@ public class BaiLianRerankClient implements RerankClient {
 
             RetrievedChunk hit;
             if (score != null) {
-                hit = new RetrievedChunk(src.getId(), src.getText(), score);
+                hit = new RetrievedChunk(src.getId(), src.getText(), score, src.getMetadata());
             } else {
                 hit = src;
             }

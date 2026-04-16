@@ -1,0 +1,35 @@
+spring:
+  data:
+    redis:
+      port: ${RAG_REDIS_PORT:6380}
+
+rag:
+  default:
+    dimension: 1024
+  document-analysis:
+    enabled: true
+    auto-detect: true
+    fallback-to-tika-on-error: true
+    provider: ${PADDLE_PROVIDER:official}
+    request-mode: ${PADDLE_REQUEST_MODE:async}
+    api-key: ${PADDLE_API_KEY:}
+    sync-url: ${PADDLE_SYNC_URL:https://z9y7xan5l6yevav5.aistudio-app.com/layout-parsing}
+    async-job-url: ${PADDLE_ASYNC_JOB_URL:https://paddleocr.aistudio-app.com/api/v2/ocr/jobs}
+    model: ${PADDLE_MODEL:PaddleOCR-VL-1.5}
+    async-poll-interval-ms: ${PADDLE_ASYNC_POLL_INTERVAL_MS:5000}
+    async-timeout-ms: ${PADDLE_ASYNC_TIMEOUT_MS:600000}
+    result-download-dir: ${PADDLE_RESULT_DOWNLOAD_DIR:scripts/paddle_api_runtime}
+    download-remote-images: ${PADDLE_DOWNLOAD_REMOTE_IMAGES:true}
+    use-doc-orientation-classify: ${PADDLE_USE_DOC_ORIENTATION_CLASSIFY:false}
+    use-doc-unwarping: ${PADDLE_USE_DOC_UNWARPING:false}
+    use-chart-recognition: ${PADDLE_USE_CHART_RECOGNITION:false}
+    base-url: ${PADDLE_BRIDGE_BASE_URL:http://127.0.0.1:8099}
+    endpoint: ${PADDLE_BRIDGE_ENDPOINT:/v1/document-analysis}
+  search:
+    channels:
+      visual-global:
+        enabled: true
+
+ai:
+  embedding:
+    default-model: qwen3-vl-embedding-1024

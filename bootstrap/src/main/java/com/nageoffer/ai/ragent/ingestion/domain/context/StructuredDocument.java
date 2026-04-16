@@ -54,11 +54,52 @@ public class StructuredDocument {
      */
     private List<StructuredTable> tables;
 
+    private List<VisualBlock> visualBlocks;
+
     /**
      * 文档的元数据信息
      * 如作者、创建时间、页数等
      */
     private Map<String, Object> metadata;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class VisualBlock {
+
+        private String blockId;
+
+        private String blockType;
+
+        private Integer pageNo;
+
+        private String imageUri;
+
+        private String text;
+
+        private String markdown;
+
+        private String summary;
+
+        private String nearbyContext;
+
+        private BoundingBox boundingBox;
+
+        private Map<String, Object> metadata;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class BoundingBox {
+
+        private Double x1;
+        private Double y1;
+        private Double x2;
+        private Double y2;
+    }
 
     /**
      * 文档章节结构

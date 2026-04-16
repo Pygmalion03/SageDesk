@@ -57,6 +57,8 @@ public class ParserSettings {
          */
         private String mimeType;
 
+        private String parserType;
+
         /**
          * 解析器的额外配置选项
          */

@@ -17,6 +17,7 @@
 
 package com.nageoffer.ai.ragent.ingestion.node;
 
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.core.util.IdUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,7 +25,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.core.chunk.VectorChunk;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.ingestion.domain.context.DocumentSource;
@@ -33,6 +33,7 @@ import com.nageoffer.ai.ragent.ingestion.domain.enums.IngestionNodeType;
 import com.nageoffer.ai.ragent.ingestion.domain.pipeline.NodeConfig;
 import com.nageoffer.ai.ragent.ingestion.domain.result.NodeResult;
 import com.nageoffer.ai.ragent.ingestion.domain.settings.IndexerSettings;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceSpec;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
@@ -47,16 +48,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 索引节点类，负责将处理后的文档分块数据索引到向量数据库中
- * 该类实现了 {@link IngestionNode} 接口，是数据摄入流水线中的关键节点
- * 主要功能包括：解析配置、生成向量嵌入、确保向量空间存在以及将数据批量插入到 Milvus 等向量数据库
- */
 @Slf4j
 @Component
 public class IndexerNode implements IngestionNode {
 
     private static final Gson GSON = new Gson();
+    private static final int MAX_DOC_ID_LENGTH = 36;
 
     private final ObjectMapper objectMapper;
     private final VectorStoreAdmin vectorStoreAdmin;
@@ -81,30 +78,45 @@ public class IndexerNode implements IngestionNode {
     @Override
     public NodeResult execute(IngestionContext context, NodeConfig config) {
         List<VectorChunk> chunks = context.getChunks();
-        if (chunks == null || chunks.isEmpty()) {
-            return NodeResult.fail(new ClientException("没有可索引的分块"));
+        List<VectorChunk> visualChunks = context.getVisualChunks();
+        boolean hasTextChunks = chunks != null && !chunks.isEmpty();
+        boolean hasVisualChunks = visualChunks != null && !visualChunks.isEmpty();
+        if (!hasTextChunks && !hasVisualChunks) {
+            return NodeResult.fail(new ClientException("No chunks available for indexing"));
         }
+
         IndexerSettings settings = parseSettings(config.getSettings());
-        String collectionName = resolveCollectionName(context);
-        if (!StringUtils.hasText(collectionName)) {
-            return NodeResult.fail(new ClientException("索引器需要指定集合名称"));
+
+        int textRows = 0;
+        int imageRows = 0;
+        if (hasTextChunks) {
+            String collectionName = resolveCollectionName(context);
+            if (!StringUtils.hasText(collectionName)) {
+                return NodeResult.fail(new ClientException("Collection name is required for indexing"));
+            }
+            textRows = indexChunks(
+                    context,
+                    chunks,
+                    collectionName,
+                    settings.getMetadataFields(),
+                    ragDefaultProperties.getDimension(),
+                    "RAG text vector space"
+            );
         }
 
-        int expectedDim = resolveDimension(chunks);
-        if (expectedDim <= 0) {
-            return NodeResult.fail(new ClientException("未配置向量维度"));
-        }
-        float[][] vectorArray;
-        try {
-            vectorArray = toArrayFromChunks(chunks, expectedDim);
-        } catch (ClientException ex) {
-            return NodeResult.fail(ex);
+        if (Boolean.TRUE.equals(settings.getImageIndexEnabled()) && hasVisualChunks) {
+            String imageCollectionName = resolveImageCollectionName(context, settings);
+            imageRows = indexChunks(
+                    context,
+                    visualChunks,
+                    imageCollectionName,
+                    settings.getImageMetadataFields(),
+                    ragDefaultProperties.getImageDimension(),
+                    "RAG visual vector space"
+            );
         }
 
-        ensureVectorSpace(collectionName);
-        List<JsonObject> rows = buildRows(context, chunks, vectorArray, settings.getMetadataFields());
-        insertRows(collectionName, rows);
-        return NodeResult.ok("已写入 " + rows.size() + " 个分块到集合 " + collectionName);
+        return NodeResult.ok("Indexed text chunks=" + textRows + ", visual chunks=" + imageRows);
     }
 
     private IndexerSettings parseSettings(JsonNode node) {
@@ -121,7 +133,31 @@ public class IndexerNode implements IngestionNode {
         return ragDefaultProperties.getCollectionName();
     }
 
-    private void ensureVectorSpace(String collectionName) {
+    private String resolveImageCollectionName(IngestionContext context, IndexerSettings settings) {
+        if (StringUtils.hasText(settings.getImageCollectionName())) {
+            return settings.getImageCollectionName();
+        }
+        return resolveCollectionName(context) + ragDefaultProperties.getImageCollectionSuffix();
+    }
+
+    private int indexChunks(IngestionContext context,
+                            List<VectorChunk> chunks,
+                            String collectionName,
+                            List<String> metadataFields,
+                            Integer configuredDim,
+                            String remark) {
+        int expectedDim = resolveDimension(chunks, configuredDim);
+        if (expectedDim <= 0) {
+            throw new ClientException("Vector dimension is missing");
+        }
+        float[][] vectorArray = toArrayFromChunks(chunks, expectedDim);
+        ensureVectorSpace(collectionName, expectedDim, remark);
+        List<JsonObject> rows = buildRows(context, chunks, vectorArray, metadataFields);
+        insertRows(collectionName, rows);
+        return rows.size();
+    }
+
+    private void ensureVectorSpace(String collectionName, int dimension, String remark) {
         boolean vectorSpaceExists = vectorStoreAdmin.vectorSpaceExists(VectorSpaceId.builder()
                 .logicalName(collectionName)
                 .build());
@@ -133,7 +169,9 @@ public class IndexerNode implements IngestionNode {
                 .spaceId(VectorSpaceId.builder()
                         .logicalName(collectionName)
                         .build())
-                .remark("RAG向量存储空间")
+                .remark(remark)
+                .dimension(dimension)
+                .metricType(ragDefaultProperties.getMetricType())
                 .build();
         vectorStoreAdmin.ensureVectorSpace(spaceSpec);
     }
@@ -146,12 +184,17 @@ public class IndexerNode implements IngestionNode {
                 .collectionName(collectionName)
                 .data(rows)
                 .build();
-        InsertResp resp = milvusClient.insert(req);
-        log.info("Milvus 写入成功，集合={}，行数={}", collectionName, resp.getInsertCnt());
+        try {
+            InsertResp resp = milvusClient.insert(req);
+            log.info("Milvus insert success, collection={}, rows={}", collectionName, resp.getInsertCnt());
+        } catch (Exception ex) {
+            JsonObject firstRow = rows.get(0);
+            log.error("Milvus insert failed, collection={}, firstRow={}", collectionName, truncate(firstRow.toString()), ex);
+            throw ex;
+        }
     }
 
-    private int resolveDimension(List<VectorChunk> chunks) {
-        Integer configured = ragDefaultProperties.getDimension();
+    private int resolveDimension(List<VectorChunk> chunks, Integer configured) {
         if (configured != null && configured > 0) {
             return configured;
         }
@@ -168,10 +211,10 @@ public class IndexerNode implements IngestionNode {
         for (int i = 0; i < chunks.size(); i++) {
             float[] vector = chunks.get(i).getEmbedding();
             if (vector == null || vector.length == 0) {
-                throw new ClientException("向量结果缺失，索引: " + i);
+                throw new ClientException("Vector is missing at chunk index " + i);
             }
             if (expectedDim > 0 && vector.length != expectedDim) {
-                throw new ClientException("向量维度不匹配，索引: " + i);
+                throw new ClientException("Vector dimension mismatch at chunk index " + i);
             }
             out[i] = vector;
         }
@@ -186,11 +229,11 @@ public class IndexerNode implements IngestionNode {
         List<JsonObject> rows = new java.util.ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
             VectorChunk chunk = chunks.get(i);
-            String chunkId = StringUtils.hasText(chunk.getChunkId()) ? chunk.getChunkId() : IdUtil.getSnowflakeNextIdStr();
+            String rawChunkId = StringUtils.hasText(chunk.getChunkId()) ? chunk.getChunkId() : IdUtil.getSnowflakeNextIdStr();
+            String chunkId = normalizeChunkId(rawChunkId);
             chunk.setChunkId(chunkId);
             chunk.setEmbedding(vectors[i]);
 
-            // 使用原始内容作为存储内容，而不是用于embedding的文本
             String content = chunk.getContent() == null ? "" : chunk.getContent();
             if (content.length() > 65535) {
                 content = content.substring(0, 65535);
@@ -207,6 +250,9 @@ public class IndexerNode implements IngestionNode {
             if (source != null && StringUtils.hasText(source.getLocation())) {
                 metadata.addProperty("source_location", source.getLocation());
             }
+            if (!chunkId.equals(rawChunkId)) {
+                metadata.addProperty("original_chunk_id", rawChunkId);
+            }
 
             if (metadataFields != null && !metadataFields.isEmpty()) {
                 Map<String, Object> combined = new HashMap<>(mergedMetadata);
@@ -222,6 +268,12 @@ public class IndexerNode implements IngestionNode {
                         addMetadataValue(metadata, field, value);
                     }
                 }
+            } else if (chunk.getMetadata() != null && !chunk.getMetadata().isEmpty()) {
+                chunk.getMetadata().forEach((field, value) -> {
+                    if (StringUtils.hasText(field) && value != null) {
+                        addMetadataValue(metadata, field, value);
+                    }
+                });
             }
 
             JsonObject row = new JsonObject();
@@ -232,6 +284,16 @@ public class IndexerNode implements IngestionNode {
             rows.add(row);
         }
         return rows;
+    }
+
+    private String normalizeChunkId(String rawChunkId) {
+        if (!StringUtils.hasText(rawChunkId)) {
+            return IdUtil.fastSimpleUUID();
+        }
+        if (rawChunkId.length() <= MAX_DOC_ID_LENGTH) {
+            return rawChunkId;
+        }
+        return DigestUtil.md5Hex(rawChunkId);
     }
 
     private Map<String, Object> mergeMetadata(IngestionContext context) {
@@ -253,5 +315,12 @@ public class IndexerNode implements IngestionNode {
             arr.add(v);
         }
         return arr;
+    }
+
+    private String truncate(String value) {
+        if (!StringUtils.hasText(value) || value.length() <= 512) {
+            return value;
+        }
+        return value.substring(0, 512) + "...";
     }
 }

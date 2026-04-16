@@ -78,6 +78,8 @@ public class IngestionContext {
      */
     private List<VectorChunk> chunks;
 
+    private List<VectorChunk> visualChunks;
+
     /**
      * 经过增强处理后的文本内容
      */

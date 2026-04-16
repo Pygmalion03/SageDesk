@@ -46,13 +46,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * 数据清洗流水线业务逻辑实现
+ * 数据摄入流水线服务实现
  */
 @Service
 @RequiredArgsConstructor
 public class IngestionPipelineServiceImpl implements IngestionPipelineService {
+
+    private static final String DEFAULT_VISUAL_PIPELINE_NAME = "system_visual_default";
+    private static final String DEFAULT_VISUAL_PIPELINE_DESCRIPTION = "Built-in visual enhanced ingestion pipeline";
 
     private final IngestionPipelineMapper pipelineMapper;
     private final IngestionPipelineNodeMapper nodeMapper;
@@ -65,8 +69,8 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
         IngestionPipelineDO pipeline = IngestionPipelineDO.builder()
                 .name(request.getName())
                 .description(request.getDescription())
-                .createdBy(UserContext.getUsername())
-                .updatedBy(UserContext.getUsername())
+                .createdBy(resolveOperator())
+                .updatedBy(resolveOperator())
                 .build();
         try {
             pipelineMapper.insert(pipeline);
@@ -89,7 +93,7 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
         if (request.getDescription() != null) {
             pipeline.setDescription(request.getDescription());
         }
-        pipeline.setUpdatedBy(UserContext.getUsername());
+        pipeline.setUpdatedBy(resolveOperator());
         pipelineMapper.updateById(pipeline);
 
         if (request.getNodes() != null) {
@@ -126,7 +130,7 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
         IngestionPipelineDO pipeline = pipelineMapper.selectById(pipelineId);
         Assert.notNull(pipeline, () -> new ClientException("未找到流水线"));
         pipeline.setDeleted(1);
-        pipeline.setUpdatedBy(UserContext.getUsername());
+        pipeline.setUpdatedBy(resolveOperator());
         pipelineMapper.updateById(pipeline);
 
         LambdaQueryWrapper<IngestionPipelineNodeDO> qw = new LambdaQueryWrapper<IngestionPipelineNodeDO>()
@@ -150,6 +154,75 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
                 .build();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String getOrCreateVisualDefaultPipelineId() {
+        IngestionPipelineDO existing = findByName(DEFAULT_VISUAL_PIPELINE_NAME);
+        if (existing != null) {
+            return String.valueOf(existing.getId());
+        }
+
+        IngestionPipelineDO pipeline = IngestionPipelineDO.builder()
+                .name(DEFAULT_VISUAL_PIPELINE_NAME)
+                .description(DEFAULT_VISUAL_PIPELINE_DESCRIPTION)
+                .createdBy(resolveOperator())
+                .updatedBy(resolveOperator())
+                .build();
+        try {
+            pipelineMapper.insert(pipeline);
+            upsertNodes(pipeline.getId(), buildDefaultVisualNodes());
+            return String.valueOf(pipeline.getId());
+        } catch (DuplicateKeyException ex) {
+            IngestionPipelineDO duplicated = findByName(DEFAULT_VISUAL_PIPELINE_NAME);
+            if (duplicated != null) {
+                return String.valueOf(duplicated.getId());
+            }
+            throw new ClientException("创建默认视觉流水线失败: " + ex.getMessage());
+        }
+    }
+
+    private IngestionPipelineDO findByName(String name) {
+        return pipelineMapper.selectOne(new LambdaQueryWrapper<IngestionPipelineDO>()
+                .eq(IngestionPipelineDO::getDeleted, 0)
+                .eq(IngestionPipelineDO::getName, name)
+                .last("limit 1"));
+    }
+
+    private List<IngestionPipelineNodeRequest> buildDefaultVisualNodes() {
+        return List.of(
+                node("fetcher", IngestionNodeType.FETCHER.getValue(), null, "parser"),
+                node("parser", IngestionNodeType.PARSER.getValue(), objectMapper.valueToTree(Map.of(
+                        "rules", List.of(
+                                Map.of("mimeType", "PDF", "parserType", "PaddleDocumentAnalysis"),
+                                Map.of("mimeType", "IMAGE", "parserType", "PaddleDocumentAnalysis"),
+                                Map.of("mimeType", "ALL", "parserType", "Tika")
+                        )
+                )), "chunker"),
+                node("chunker", IngestionNodeType.CHUNKER.getValue(), objectMapper.valueToTree(Map.of(
+                        "strategy", "structure_aware",
+                        "chunkSize", 800,
+                        "overlapSize", 120,
+                        "visualEmbeddingModel", "qwen3-vl-embedding-1024",
+                        "visualMaxLength", 2000
+                )), "indexer"),
+                node("indexer", IngestionNodeType.INDEXER.getValue(), objectMapper.valueToTree(Map.of(
+                        "imageIndexEnabled", true
+                )), null)
+        );
+    }
+
+    private IngestionPipelineNodeRequest node(String nodeId,
+                                              String nodeType,
+                                              JsonNode settings,
+                                              String nextNodeId) {
+        IngestionPipelineNodeRequest request = new IngestionPipelineNodeRequest();
+        request.setNodeId(nodeId);
+        request.setNodeType(nodeType);
+        request.setSettings(settings);
+        request.setNextNodeId(nextNodeId);
+        return request;
+    }
+
     private void upsertNodes(Long pipelineId, List<IngestionPipelineNodeRequest> nodes) {
         if (nodes == null) {
             return;
@@ -168,8 +241,8 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
                     .nextNodeId(node.getNextNodeId())
                     .settingsJson(toJson(node.getSettings()))
                     .conditionJson(toJson(node.getCondition()))
-                    .createdBy(UserContext.getUsername())
-                    .updatedBy(UserContext.getUsername())
+                    .createdBy(resolveOperator())
+                    .updatedBy(resolveOperator())
                     .build();
             nodeMapper.insert(entity);
         }
@@ -178,7 +251,8 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
     private List<IngestionPipelineNodeDO> fetchNodes(Long pipelineId) {
         LambdaQueryWrapper<IngestionPipelineNodeDO> qw = new LambdaQueryWrapper<IngestionPipelineNodeDO>()
                 .eq(IngestionPipelineNodeDO::getPipelineId, pipelineId)
-                .eq(IngestionPipelineNodeDO::getDeleted, 0);
+                .eq(IngestionPipelineNodeDO::getDeleted, 0)
+                .orderByAsc(IngestionPipelineNodeDO::getId);
         return nodeMapper.selectList(qw);
     }
 
@@ -244,5 +318,9 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
         } catch (IllegalArgumentException ex) {
             return nodeType;
         }
+    }
+
+    private String resolveOperator() {
+        return StringUtils.hasText(UserContext.getUsername()) ? UserContext.getUsername() : "system";
     }
 }

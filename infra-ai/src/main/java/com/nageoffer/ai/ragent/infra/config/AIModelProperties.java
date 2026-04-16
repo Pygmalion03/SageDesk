@@ -134,6 +134,8 @@ public class AIModelProperties {
          * 是否支持思考链功能
          */
         private Boolean supportsThinking = false;
+
+        private Boolean supportsMultimodal = false;
     }
 
     /**

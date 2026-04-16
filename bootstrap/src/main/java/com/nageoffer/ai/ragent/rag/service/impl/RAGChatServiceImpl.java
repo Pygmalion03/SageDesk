@@ -28,6 +28,7 @@ import com.nageoffer.ai.ragent.infra.chat.LLMService;
 import com.nageoffer.ai.ragent.infra.chat.StreamCallback;
 import com.nageoffer.ai.ragent.infra.chat.StreamCancellationHandle;
 import com.nageoffer.ai.ragent.rag.aop.ChatRateLimit;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.guidance.GuidanceDecision;
 import com.nageoffer.ai.ragent.rag.core.guidance.IntentGuidanceService;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentResolver;
@@ -80,6 +81,7 @@ public class RAGChatServiceImpl implements RAGChatService {
     private final QueryRewriteService queryRewriteService;
     private final IntentResolver intentResolver;
     private final RetrievalEngine retrievalEngine;
+    private final RAGDefaultProperties ragDefaultProperties;
 
     @Override
     @ChatRateLimit
@@ -191,6 +193,7 @@ public class RAGChatServiceImpl implements RAGChatService {
         );
         ChatRequest chatRequest = ChatRequest.builder()
                 .messages(messages)
+                .preferredModelId(resolvePreferredModelId(messages))
                 .thinking(deepThinking)
                 .temperature(ctx.hasMcp() ? 0.3D : 0D)  // MCP 场景稍微放宽温度
                 .topP(ctx.hasMcp() ? 0.8D : 1D)
@@ -205,5 +208,12 @@ public class RAGChatServiceImpl implements RAGChatService {
             return null;
         }
         return benchmarkChatMaxTokens;
+    }
+
+    private String resolvePreferredModelId(List<ChatMessage> messages) {
+        if (messages == null || messages.stream().noneMatch(ChatMessage::hasImageParts)) {
+            return null;
+        }
+        return ragDefaultProperties.getVisualAnswerModel();
     }
 }
