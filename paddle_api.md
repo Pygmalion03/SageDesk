@@ -6,7 +6,7 @@ import os
 import requests
 
 API_URL = "https://z9y7xan5l6yevav5.aistudio-app.com/layout-parsing"
-TOKEN = "93e7664bb9cb61fbf71bbcb9a1efdab2952f3363"
+TOKEN = os.getenv("PADDLE_API_KEY", "<your-paddle-api-key>")
 
 file_path = "<local file path>"
 
@@ -74,7 +74,7 @@ import sys
 import time
 
 JOB_URL = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
-TOKEN = "93e7664bb9cb61fbf71bbcb9a1efdab2952f3363"
+TOKEN = os.getenv("PADDLE_API_KEY", "<your-paddle-api-key>")
 MODEL = "PaddleOCR-VL-1.5"
 
 file_path = "<local file path or file url>"
@@ -196,7 +196,7 @@ import base64
 import requests
 
 API_URL = "https://q7h9x78603bbj918.aistudio-app.com/ocr"
-TOKEN = "93e7664bb9cb61fbf71bbcb9a1efdab2952f3363"
+TOKEN = os.getenv("PADDLE_API_KEY", "<your-paddle-api-key>")
 
 file_path = "<local file path>"
 input_filename = os.path.splitext(os.path.basename(file_path))[0]
@@ -254,7 +254,7 @@ import sys
 import time
 
 JOB_URL = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
-TOKEN = "93e7664bb9cb61fbf71bbcb9a1efdab2952f3363"
+TOKEN = os.getenv("PADDLE_API_KEY", "<your-paddle-api-key>")
 MODEL = "PP-OCRv5"
 
 file_path = "<local file path or file url>"
@@ -367,7 +367,7 @@ import os
 import requests
 
 API_URL = "https://r9k361uagdccw9vf.aistudio-app.com/layout-parsing"
-TOKEN = "93e7664bb9cb61fbf71bbcb9a1efdab2952f3363"
+TOKEN = os.getenv("PADDLE_API_KEY", "<your-paddle-api-key>")
 
 file_path = "<local file path>"
 
@@ -436,7 +436,7 @@ import sys
 import time
 
 JOB_URL = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs"
-TOKEN = "93e7664bb9cb61fbf71bbcb9a1efdab2952f3363"
+TOKEN = os.getenv("PADDLE_API_KEY", "<your-paddle-api-key>")
 MODEL = "PP-StructureV3"
 
 file_path = "<local file path or file url>"
