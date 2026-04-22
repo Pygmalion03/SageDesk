@@ -25,6 +25,7 @@ import lombok.Data;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Data
 @Builder
@@ -48,5 +49,18 @@ public class PromptContext {
 
     public boolean hasKb() {
         return StrUtil.isNotBlank(kbContext);
+    }
+
+    public List<RetrievedChunk> visualChunks() {
+        if (intentChunks == null || intentChunks.isEmpty()) {
+            return List.of();
+        }
+        return intentChunks.values().stream()
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .filter(RetrievedChunk::isVisual)
+                .distinct()
+                .toList();
     }
 }

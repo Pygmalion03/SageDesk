@@ -1,0 +1,5 @@
+﻿EXIT=0
+http_code=200
+time_starttransfer=19.696592
+time_total=19.698347
+size_download=296

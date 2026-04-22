@@ -1,0 +1,322 @@
+﻿{
+    "generatedAt":  "2026-03-20T15:39:41",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "caseCount":  10,
+    "startCaseIndex":  11,
+    "topN":  3,
+    "recallAtNPercent":  100,
+    "avgKeywordCoveragePercent":  null,
+    "cases":  [
+                  {
+                      "id":  "eval_011",
+                      "question":  "这个项目的双路检索是由哪两条链路组成的？",
+                      "traceId":  "2034894056986828800",
+                      "taskId":  "2034894056986828801",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_011.sse.log"
+                  },
+                  {
+                      "id":  "eval_012",
+                      "question":  "为什么做了意图识别之后，还需要全局向量兜底检索？",
+                      "traceId":  "2034894345357811712",
+                      "taskId":  "2034894345357811713",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_012.sse.log"
+                  },
+                  {
+                      "id":  "eval_013",
+                      "question":  "意图定向检索主要解决什么问题，全局向量检索又主要解决什么问题？",
+                      "traceId":  "2034894676129013760",
+                      "taskId":  "2034894676129013761",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_013.sse.log"
+                  },
+                  {
+                      "id":  "eval_014",
+                      "question":  "在什么情况下系统会更依赖全局向量兜底，而不是只走意图定向检索？",
+                      "traceId":  "2034895116749037568",
+                      "taskId":  "2034895116749037569",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_014.sse.log"
+                  },
+                  {
+                      "id":  "eval_015",
+                      "question":  "为什么进入检索前要先做问题重写？",
+                      "traceId":  "2034895464167432192",
+                      "taskId":  "2034895464167432193",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_015.sse.log"
+                  },
+                  {
+                      "id":  "eval_016",
+                      "question":  "为什么要把复合问题拆成多个子问题再检索？",
+                      "traceId":  "2034895828887330816",
+                      "taskId":  "2034895828887330817",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_016.sse.log"
+                  },
+                  {
+                      "id":  "eval_017",
+                      "question":  "问题重写和子问题拆分这一步，对复杂企业知识问答有什么实际价值？",
+                      "traceId":  "2034896125814693888",
+                      "taskId":  "2034896125814693889",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_017.sse.log"
+                  },
+                  {
+                      "id":  "eval_018",
+                      "question":  "Rerank 在这条链路里是放在什么位置上的？",
+                      "traceId":  "2034896583417454592",
+                      "taskId":  "2034896583417454593",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_018.sse.log"
+                  },
+                  {
+                      "id":  "eval_019",
+                      "question":  "为什么描述 Rerank 收益时，更适合写 Top-N 命中率，而不是只说答案更准？",
+                      "traceId":  "2034896871943626752",
+                      "taskId":  "2034896871943626753",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_019.sse.log"
+                  },
+                  {
+                      "id":  "eval_020",
+                      "question":  "如果要量化双路检索和 Rerank 的收益，最推荐统计哪几项指标？",
+                      "traceId":  "2034897263171526656",
+                      "taskId":  "2034897263171526657",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-152524\\eval_020.sse.log"
+                  }
+              ]
+}

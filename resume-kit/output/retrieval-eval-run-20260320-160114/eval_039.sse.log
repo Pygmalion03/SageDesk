@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_039-fb868961","taskId":"2034905942105055233"}
+
+event:cancel
+data:{"messageId":"null","title":"Trace离线评估替代手工日志"}
+
+event:done
+data:[DONE]
+

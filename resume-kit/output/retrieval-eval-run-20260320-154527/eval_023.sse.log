@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_023-be04dedf","taskId":"2034899835341037569"}
+
+event:cancel
+data:{"messageId":"null","title":"全局排队限流核心组件"}
+
+event:done
+data:[DONE]
+

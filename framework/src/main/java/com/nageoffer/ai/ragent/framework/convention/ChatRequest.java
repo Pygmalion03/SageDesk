@@ -60,6 +60,11 @@ public class ChatRequest {
     @Default
     private List<ChatMessage> messages = new ArrayList<>();
 
+    /**
+     * 可选：显式指定优先使用的模型 ID。
+     */
+    private String preferredModelId;
+
     // ================== 模型控制参数 ==================
 
     /**
@@ -121,4 +126,8 @@ public class ChatRequest {
      * </p>
      */
     private Boolean enableTools;
+
+    public boolean requiresMultimodal() {
+        return messages != null && messages.stream().anyMatch(ChatMessage::hasImageParts);
+    }
 }

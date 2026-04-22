@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_029-39caa557","taskId":"2034902244662501377"}
+
+event:cancel
+data:{"messageId":"null","title":"TTFB 体现排队检索首轮响应"}
+
+event:done
+data:[DONE]
+

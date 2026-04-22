@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_048-f5540596","taskId":"2034909075065593857"}
+
+event:cancel
+data:{"messageId":"null","title":"文件存储和向量索引分离后重切块重建索引更易"}
+
+event:done
+data:[DONE]
+

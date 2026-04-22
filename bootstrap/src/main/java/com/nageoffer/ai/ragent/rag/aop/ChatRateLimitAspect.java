@@ -36,9 +36,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * SSE 全局限流切面，避免业务代码侵入
+ * SSE global rate-limit aspect.
  */
 @Slf4j
 @Aspect
@@ -69,9 +70,8 @@ public class ChatRateLimitAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
 
-        chatQueueLimiter.enqueue(question, actualConversationId, emitter, () -> {
-            invokeWithTrace(method, target, args, question, actualConversationId, emitter);
-        });
+        chatQueueLimiter.enqueue(question, actualConversationId, emitter, () ->
+                invokeWithTrace(method, target, args, question, actualConversationId, emitter));
         return null;
     }
 
@@ -101,27 +101,17 @@ public class ChatRateLimitAspect {
                 .extraData(StrUtil.format("{\"questionLength\":{}}", StrUtil.length(question)))
                 .build());
 
+        AtomicBoolean finished = new AtomicBoolean(false);
+        registerEmitterCallbacks(emitter, traceId, startMillis, finished);
+
         RagTraceContext.setTraceId(traceId);
         RagTraceContext.setTaskId(taskId);
         try {
             method.invoke(target, args);
-            traceRecordService.finishRun(
-                    traceId,
-                    STATUS_SUCCESS,
-                    null,
-                    new Date(),
-                    System.currentTimeMillis() - startMillis
-            );
         } catch (Throwable ex) {
             Throwable cause = unwrap(ex);
-            traceRecordService.finishRun(
-                    traceId,
-                    STATUS_ERROR,
-                    truncateError(cause),
-                    new Date(),
-                    System.currentTimeMillis() - startMillis
-            );
-            log.warn("执行流式对话失败", cause);
+            finishRunOnce(traceId, STATUS_ERROR, truncateError(cause), startMillis, finished);
+            log.warn("Failed to execute streaming chat", cause);
             emitter.completeWithError(cause);
         } finally {
             RagTraceContext.clear();
@@ -133,7 +123,7 @@ public class ChatRateLimitAspect {
             method.invoke(target, args);
         } catch (Throwable ex) {
             Throwable cause = unwrap(ex);
-            log.warn("执行流式对话失败", cause);
+            log.warn("Failed to execute streaming chat", cause);
             emitter.completeWithError(cause);
         }
     }
@@ -144,6 +134,32 @@ public class ChatRateLimitAspect {
             return invocationTargetException.getTargetException();
         }
         return throwable;
+    }
+
+    private void registerEmitterCallbacks(SseEmitter emitter,
+                                          String traceId,
+                                          long startMillis,
+                                          AtomicBoolean finished) {
+        emitter.onCompletion(() -> finishRunOnce(traceId, STATUS_SUCCESS, null, startMillis, finished));
+        emitter.onTimeout(() -> finishRunOnce(traceId, STATUS_ERROR, "SseTimeout", startMillis, finished));
+        emitter.onError(error -> finishRunOnce(traceId, STATUS_ERROR, truncateError(error), startMillis, finished));
+    }
+
+    private void finishRunOnce(String traceId,
+                               String status,
+                               String errorMessage,
+                               long startMillis,
+                               AtomicBoolean finished) {
+        if (!finished.compareAndSet(false, true)) {
+            return;
+        }
+        traceRecordService.finishRun(
+                traceId,
+                status,
+                errorMessage,
+                new Date(),
+                System.currentTimeMillis() - startMillis
+        );
     }
 
     private String truncateError(Throwable throwable) {

@@ -28,6 +28,7 @@ import com.nageoffer.ai.ragent.infra.chat.LLMService;
 import com.nageoffer.ai.ragent.infra.chat.StreamCallback;
 import com.nageoffer.ai.ragent.infra.chat.StreamCancellationHandle;
 import com.nageoffer.ai.ragent.rag.aop.ChatRateLimit;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.guidance.GuidanceDecision;
 import com.nageoffer.ai.ragent.rag.core.guidance.IntentGuidanceService;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentResolver;
@@ -44,8 +45,10 @@ import com.nageoffer.ai.ragent.rag.dto.SubQuestionIntent;
 import com.nageoffer.ai.ragent.rag.service.RAGChatService;
 import com.nageoffer.ai.ragent.rag.service.handler.StreamCallbackFactory;
 import com.nageoffer.ai.ragent.rag.service.handler.StreamTaskManager;
+import com.nageoffer.ai.ragent.rag.service.support.VisualAnswerAppendixService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -66,6 +69,9 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.DEFAULT_TOP_K;
 @RequiredArgsConstructor
 public class RAGChatServiceImpl implements RAGChatService {
 
+    @Value("${rag.benchmark.chat-max-tokens:0}")
+    private Integer benchmarkChatMaxTokens;
+
     private final LLMService llmService;
     private final RAGPromptService promptBuilder;
     private final PromptTemplateLoader promptTemplateLoader;
@@ -76,6 +82,8 @@ public class RAGChatServiceImpl implements RAGChatService {
     private final QueryRewriteService queryRewriteService;
     private final IntentResolver intentResolver;
     private final RetrievalEngine retrievalEngine;
+    private final RAGDefaultProperties ragDefaultProperties;
+    private final VisualAnswerAppendixService visualAnswerAppendixService;
 
     @Override
     @ChatRateLimit
@@ -133,7 +141,7 @@ public class RAGChatServiceImpl implements RAGChatService {
                 mergedGroup,
                 history,
                 thinkingEnabled,
-                callback
+                wrapWithVisualAppendix(callback, ctx)
         );
         taskManager.bindHandle(taskId, handle);
     }
@@ -161,6 +169,7 @@ public class RAGChatServiceImpl implements RAGChatService {
         ChatRequest req = ChatRequest.builder()
                 .messages(messages)
                 .temperature(0.7D)
+                .maxTokens(resolveChatMaxTokens())
                 .thinking(false)
                 .build();
         return llmService.streamChat(req, callback);
@@ -186,11 +195,63 @@ public class RAGChatServiceImpl implements RAGChatService {
         );
         ChatRequest chatRequest = ChatRequest.builder()
                 .messages(messages)
+                .preferredModelId(resolvePreferredModelId(messages))
                 .thinking(deepThinking)
                 .temperature(ctx.hasMcp() ? 0.3D : 0D)  // MCP 场景稍微放宽温度
                 .topP(ctx.hasMcp() ? 0.8D : 1D)
+                .maxTokens(resolveChatMaxTokens())
                 .build();
 
         return llmService.streamChat(chatRequest, callback);
+    }
+
+    private Integer resolveChatMaxTokens() {
+        if (benchmarkChatMaxTokens == null || benchmarkChatMaxTokens <= 0) {
+            return null;
+        }
+        return benchmarkChatMaxTokens;
+    }
+
+    private String resolvePreferredModelId(List<ChatMessage> messages) {
+        if (messages == null || messages.stream().noneMatch(ChatMessage::hasImageParts)) {
+            return null;
+        }
+        return ragDefaultProperties.getVisualAnswerModel();
+    }
+
+    private StreamCallback wrapWithVisualAppendix(StreamCallback delegate, RetrievalContext ctx) {
+        String appendix = visualAnswerAppendixService.buildMarkdown(ctx == null ? null : ctx.getIntentChunks());
+        if (StrUtil.isBlank(appendix)) {
+            return delegate;
+        }
+        return new StreamCallback() {
+
+            private boolean completed;
+
+            @Override
+            public void onContent(String content) {
+                delegate.onContent(content);
+            }
+
+            @Override
+            public void onThinking(String content) {
+                delegate.onThinking(content);
+            }
+
+            @Override
+            public void onComplete() {
+                if (completed) {
+                    return;
+                }
+                completed = true;
+                delegate.onContent(appendix);
+                delegate.onComplete();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                delegate.onError(error);
+            }
+        };
     }
 }

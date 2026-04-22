@@ -22,6 +22,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * RAG 检索命中结果
  * <p>
@@ -30,7 +33,6 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 @Builder
 public class RetrievedChunk {
 
@@ -51,4 +53,30 @@ public class RetrievedChunk {
      * 数值越大表示与查询的相关性越高
      */
     private Float score;
+
+    @Builder.Default
+    private Map<String, Object> metadata = new HashMap<>();
+
+    public RetrievedChunk(String id, String text, Float score) {
+        this.id = id;
+        this.text = text;
+        this.score = score;
+        this.metadata = new HashMap<>();
+    }
+
+    public RetrievedChunk(String id, String text, Float score, Map<String, Object> metadata) {
+        this.id = id;
+        this.text = text;
+        this.score = score;
+        this.metadata = metadata != null ? metadata : new HashMap<>();
+    }
+
+    public boolean isVisual() {
+        Object modality = metadata.get("modality");
+        Object contentType = metadata.get("content_type");
+        Object imageUri = metadata.get("image_uri");
+        return (modality != null && "image".equalsIgnoreCase(String.valueOf(modality)))
+                || (contentType != null && "visual".equalsIgnoreCase(String.valueOf(contentType)))
+                || imageUri != null;
+    }
 }

@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_034-0aaa04af","taskId":"2034904262479241217"}
+
+event:cancel
+data:{"messageId":"null","title":"多通道检索节点单独打点"}
+
+event:done
+data:[DONE]
+

@@ -20,42 +20,52 @@ package com.nageoffer.ai.ragent.rag.core.retrieve.channel;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
+import com.nageoffer.ai.ragent.infra.model.ModelSelector;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
 import com.nageoffer.ai.ragent.rag.core.intent.NodeScore;
 import com.nageoffer.ai.ragent.rag.core.retrieve.RetrieverService;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.strategy.CollectionParallelRetriever;
+import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
+import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
- * 向量全局检索通道
- * <p>
- * 在所有知识库中进行向量检索，作为兜底策略
- * 当意图识别失败或置信度低时启用
+ * Vector global search across all searchable collections.
  */
 @Slf4j
 @Component
 public class VectorGlobalSearchChannel implements SearchChannel {
 
     private final SearchChannelProperties properties;
+    private final RAGDefaultProperties ragDefaultProperties;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final VectorStoreAdmin vectorStoreAdmin;
+    private final ModelSelector modelSelector;
     private final CollectionParallelRetriever parallelRetriever;
 
     public VectorGlobalSearchChannel(RetrieverService retrieverService,
                                      SearchChannelProperties properties,
+                                     RAGDefaultProperties ragDefaultProperties,
                                      KnowledgeBaseMapper knowledgeBaseMapper,
+                                     VectorStoreAdmin vectorStoreAdmin,
+                                     ModelSelector modelSelector,
                                      @Qualifier("ragInnerRetrievalThreadPoolExecutor") Executor innerRetrievalExecutor) {
         this.properties = properties;
+        this.ragDefaultProperties = ragDefaultProperties;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
+        this.vectorStoreAdmin = vectorStoreAdmin;
+        this.modelSelector = modelSelector;
         this.parallelRetriever = new CollectionParallelRetriever(retrieverService, innerRetrievalExecutor);
     }
 
@@ -66,26 +76,23 @@ public class VectorGlobalSearchChannel implements SearchChannel {
 
     @Override
     public int getPriority() {
-        return 10;  // 较低优先级
+        return 10;
     }
 
     @Override
     public boolean isEnabled(SearchContext context) {
-        // 检查配置是否启用
         if (!properties.getChannels().getVectorGlobal().isEnabled()) {
             return false;
         }
 
-        // 条件1：没有识别出任何意图
         List<NodeScore> allScores = context.getIntents().stream()
                 .flatMap(si -> si.nodeScores().stream())
                 .toList();
         if (CollUtil.isEmpty(allScores)) {
-            log.info("未识别出任何意图，启用全局检索");
+            log.info("No intent detected, enable vector global search");
             return true;
         }
 
-        // 条件2：意图置信度都很低
         double maxScore = allScores.stream()
                 .mapToDouble(NodeScore::getScore)
                 .max()
@@ -93,7 +100,7 @@ public class VectorGlobalSearchChannel implements SearchChannel {
 
         double threshold = properties.getChannels().getVectorGlobal().getConfidenceThreshold();
         if (maxScore < threshold) {
-            log.info("意图置信度过低（{}），启用全局检索", maxScore);
+            log.info("Intent confidence {} below threshold {}, enable vector global search", maxScore, threshold);
             return true;
         }
 
@@ -105,13 +112,11 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         long startTime = System.currentTimeMillis();
 
         try {
-            log.info("执行向量全局检索，问题：{}", context.getMainQuestion());
+            log.info("Run vector global search, question={}", context.getMainQuestion());
 
-            // 获取所有 KB 类型的 collection
-            List<String> collections = getAllKBCollections();
-
+            List<CollectionParallelRetriever.CollectionTarget> collections = getAllKBCollections();
             if (collections.isEmpty()) {
-                log.warn("未找到任何 KB collection，跳过全局检索");
+                log.warn("No searchable text collection found for vector global search");
                 return SearchChannelResult.builder()
                         .channelType(SearchChannelType.VECTOR_GLOBAL)
                         .channelName(getName())
@@ -121,7 +126,6 @@ public class VectorGlobalSearchChannel implements SearchChannel {
                         .build();
             }
 
-            // 并行在所有 collection 中检索
             int topKMultiplier = properties.getChannels().getVectorGlobal().getTopKMultiplier();
             List<RetrievedChunk> allChunks = retrieveFromAllCollections(
                     context.getMainQuestion(),
@@ -130,19 +134,19 @@ public class VectorGlobalSearchChannel implements SearchChannel {
             );
 
             long latency = System.currentTimeMillis() - startTime;
-
-            log.info("向量全局检索完成，检索到 {} 个 Chunk，耗时 {}ms", allChunks.size(), latency);
+            log.info("Vector global search completed, chunkCount={}, latencyMs={}", allChunks.size(), latency);
 
             return SearchChannelResult.builder()
                     .channelType(SearchChannelType.VECTOR_GLOBAL)
                     .channelName(getName())
                     .chunks(allChunks)
-                    .confidence(0.7)  // 全局检索置信度中等
+                    .confidence(allChunks.isEmpty() ? 0.0 : 0.7)
                     .latencyMs(latency)
+                    .metadata(Map.of("collectionCount", collections.size()))
                     .build();
 
         } catch (Exception e) {
-            log.error("向量全局检索失败", e);
+            log.error("Vector global search failed", e);
             return SearchChannelResult.builder()
                     .channelType(SearchChannelType.VECTOR_GLOBAL)
                     .channelName(getName())
@@ -153,35 +157,49 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         }
     }
 
-    /**
-     * 获取所有 KB 类型的 collection
-     */
-    private List<String> getAllKBCollections() {
-        Set<String> collections = new HashSet<>();
-
-        // 从知识库表获取全量 collection（全局检索兜底）
+    private List<CollectionParallelRetriever.CollectionTarget> getAllKBCollections() {
         List<KnowledgeBaseDO> kbList = knowledgeBaseMapper.selectList(
                 Wrappers.lambdaQuery(KnowledgeBaseDO.class)
-                        .select(KnowledgeBaseDO::getCollectionName)
+                        .select(KnowledgeBaseDO::getCollectionName, KnowledgeBaseDO::getEmbeddingModel)
                         .eq(KnowledgeBaseDO::getDeleted, 0)
         );
-        for (KnowledgeBaseDO kb : kbList) {
-            String collectionName = kb.getCollectionName();
-            if (collectionName != null && !collectionName.isBlank()) {
-                collections.add(collectionName);
-            }
-        }
-
-        return new ArrayList<>(collections);
+        return buildCollectionTargets(kbList);
     }
 
-    /**
-     * 并行在所有 collection 中检索
-     */
+    private List<CollectionParallelRetriever.CollectionTarget> buildCollectionTargets(List<KnowledgeBaseDO> kbList) {
+        Map<String, CollectionParallelRetriever.CollectionTarget> targets = new LinkedHashMap<>();
+        for (KnowledgeBaseDO kb : kbList) {
+            String collectionName = kb.getCollectionName();
+            if (collectionName == null || collectionName.isBlank()) {
+                continue;
+            }
+            if (!modelSelector.supportsEmbeddingModel(kb.getEmbeddingModel())) {
+                log.debug("Skip vector global search collection due to unavailable embedding model, collection={}, embeddingModel={}",
+                        collectionName, kb.getEmbeddingModel());
+                continue;
+            }
+            targets.putIfAbsent(
+                    collectionName,
+                    new CollectionParallelRetriever.CollectionTarget(collectionName, kb.getEmbeddingModel())
+            );
+        }
+
+        String defaultCollectionName = ragDefaultProperties.getCollectionName();
+        if (defaultCollectionName != null
+                && !defaultCollectionName.isBlank()
+                && vectorStoreAdmin.vectorSpaceExists(VectorSpaceId.builder().logicalName(defaultCollectionName).build())) {
+            targets.putIfAbsent(
+                    defaultCollectionName,
+                    new CollectionParallelRetriever.CollectionTarget(defaultCollectionName, null)
+            );
+        }
+
+        return new ArrayList<>(targets.values());
+    }
+
     private List<RetrievedChunk> retrieveFromAllCollections(String question,
-                                                            List<String> collections,
+                                                            List<CollectionParallelRetriever.CollectionTarget> collections,
                                                             int topK) {
-        // 使用模板方法执行并行检索
         return parallelRetriever.executeParallelRetrieval(question, collections, topK);
     }
 

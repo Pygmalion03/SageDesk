@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_049-4de1e6c0","taskId":"2034909430889373697"}
+
+event:cancel
+data:{"messageId":"null","title":"resultChunkIds不命中目标文档优先排哪段"}
+
+event:done
+data:[DONE]
+

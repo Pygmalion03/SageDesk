@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_017-5b52dd04","taskId":"2034896125814693889"}
+
+event:cancel
+data:{"messageId":"null","title":"问题重写和子问题拆分复杂企业知识问答实际价值"}
+
+event:done
+data:[DONE]
+

@@ -1,0 +1,130 @@
+﻿{
+    "generatedAt":  "2026-03-19T21:31:12",
+    "overview":  {
+                     "window":  "24h",
+                     "compareWindow":  "prev_24h",
+                     "updatedAt":  1773927072829,
+                     "kpis":  {
+                                  "totalUsers":  {
+                                                     "value":  1,
+                                                     "delta":  0,
+                                                     "deltaPct":  null
+                                                 },
+                                  "activeUsers":  {
+                                                      "value":  1,
+                                                      "delta":  1,
+                                                      "deltaPct":  null
+                                                  },
+                                  "totalSessions":  {
+                                                        "value":  49,
+                                                        "delta":  48,
+                                                        "deltaPct":  null
+                                                    },
+                                  "sessions24h":  {
+                                                      "value":  48,
+                                                      "delta":  48,
+                                                      "deltaPct":  null
+                                                  },
+                                  "totalMessages":  {
+                                                        "value":  101,
+                                                        "delta":  100,
+                                                        "deltaPct":  null
+                                                    },
+                                  "messages24h":  {
+                                                      "value":  100,
+                                                      "delta":  100,
+                                                      "deltaPct":  null
+                                                  }
+                              }
+                 },
+    "performance":  {
+                        "window":  "24h",
+                        "avgLatencyMs":  23560,
+                        "p95LatencyMs":  29740,
+                        "successRate":  94.3,
+                        "errorRate":  5.7,
+                        "noDocRate":  0.0,
+                        "slowRate":  72.7
+                    },
+    "qualityTrends":  {
+                          "metric":  "quality",
+                          "window":  "7d",
+                          "granularity":  "day",
+                          "series":  [
+                                         {
+                                             "name":  "错误率",
+                                             "data":  [
+                                                          {
+                                                              "ts":  1773244800000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773331200000,
+                                                              "value":  100.0
+                                                          },
+                                                          {
+                                                              "ts":  1773417600000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773504000000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773590400000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773676800000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773763200000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773849600000,
+                                                              "value":  5.7
+                                                          }
+                                                      ]
+                                         },
+                                         {
+                                             "name":  "无知识率",
+                                             "data":  [
+                                                          {
+                                                              "ts":  1773244800000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773331200000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773417600000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773504000000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773590400000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773676800000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773763200000,
+                                                              "value":  0.0
+                                                          },
+                                                          {
+                                                              "ts":  1773849600000,
+                                                              "value":  0.0
+                                                          }
+                                                      ]
+                                         }
+                                     ]
+                      }
+}

@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_008-5c72857b","taskId":"2034886617763733505"}
+
+event:cancel
+data:{"messageId":"null","title":"后端工程指标量化"}
+
+event:done
+data:[DONE]
+

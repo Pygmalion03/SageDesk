@@ -1,0 +1,5 @@
+paddlepaddle==3.3.1
+paddleocr==3.4.1
+paddlex[ocr]>=3.4.0,<3.5.0
+PyMuPDF>=1.26.0
+Pillow>=10.0.0

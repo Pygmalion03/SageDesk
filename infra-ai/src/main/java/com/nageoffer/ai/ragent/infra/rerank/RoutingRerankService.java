@@ -21,8 +21,10 @@ import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
 import com.nageoffer.ai.ragent.infra.enums.ModelCapability;
 import com.nageoffer.ai.ragent.infra.model.ModelRoutingExecutor;
 import com.nageoffer.ai.ragent.infra.model.ModelSelector;
+import com.nageoffer.ai.ragent.infra.model.ModelTarget;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -58,5 +60,21 @@ public class RoutingRerankService implements RerankService {
                 target -> clientsByProvider.get(target.candidate().getProvider()),
                 (client, target) -> client.rerank(query, candidates, topN, target)
         );
+    }
+
+    @Override
+    public List<RetrievedChunk> rerank(String query, List<RetrievedChunk> candidates, int topN, String modelId) {
+        if (!StringUtils.hasText(modelId)) {
+            return rerank(query, candidates, topN);
+        }
+        ModelTarget target = selector.selectRerankCandidates().stream()
+                .filter(each -> modelId.equals(each.id()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Rerank model not found: " + modelId));
+        RerankClient client = clientsByProvider.get(target.candidate().getProvider());
+        if (client == null) {
+            throw new IllegalStateException("Rerank client not found: " + target.candidate().getProvider());
+        }
+        return client.rerank(query, candidates, topN, target);
     }
 }

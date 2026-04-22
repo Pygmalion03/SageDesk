@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.rag.core.retrieve;
 
 import cn.hutool.core.collection.CollUtil;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
+import com.nageoffer.ai.ragent.framework.trace.RagTraceContext;
 import com.nageoffer.ai.ragent.framework.trace.RagTraceNode;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannel;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannelResult;
@@ -31,7 +32,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -66,10 +70,14 @@ public class MultiChannelRetrievalEngine {
     public List<RetrievedChunk> retrieveKnowledgeChannels(List<SubQuestionIntent> subIntents, int topK) {
         // 构建检索上下文
         SearchContext context = buildSearchContext(subIntents, topK);
+        recordRetrievalInputs(context);
 
         // 【阶段1：多通道并行检索】
         List<SearchChannelResult> channelResults = executeSearchChannels(context);
         if (CollUtil.isEmpty(channelResults)) {
+            RagTraceContext.putNodeExtra("resultCount", 0);
+            RagTraceContext.putNodeExtra("resultChunkIds", List.of());
+            RagTraceContext.putNodeExtra("resultChunks", List.of());
             return List.of();
         }
 
@@ -88,8 +96,14 @@ public class MultiChannelRetrievalEngine {
                 .toList();
 
         if (enabledChannels.isEmpty()) {
+            RagTraceContext.putNodeExtra("enabledChannels", List.of());
             return List.of();
         }
+
+        RagTraceContext.putNodeExtra(
+                "enabledChannels",
+                enabledChannels.stream().map(SearchChannel::getName).toList()
+        );
 
         log.info("启用的检索通道：{}",
                 enabledChannels.stream().map(SearchChannel::getName).toList());
@@ -158,6 +172,11 @@ public class MultiChannelRetrievalEngine {
         log.info("多通道检索统计 - 总通道数: {}, 有结果: {}, 无结果: {}, Chunk 总数: {}",
                 enabledChannels.size(), successCount, failureCount, totalChunks);
 
+        RagTraceContext.putNodeExtra("channelCount", enabledChannels.size());
+        RagTraceContext.putNodeExtra("channelSuccessCount", successCount);
+        RagTraceContext.putNodeExtra("channelEmptyCount", failureCount);
+        RagTraceContext.putNodeExtra("initialChunkCount", totalChunks);
+        RagTraceContext.putNodeExtra("channelResults", summarizeChannelResults(results));
         return results;
     }
 
@@ -174,9 +193,14 @@ public class MultiChannelRetrievalEngine {
 
         if (enabledProcessors.isEmpty()) {
             log.warn("没有启用的后置处理器，直接返回原始结果");
-            return results.stream()
+            List<RetrievedChunk> rawChunks = results.stream()
                     .flatMap(r -> r.getChunks().stream())
                     .collect(Collectors.toList());
+            RagTraceContext.putNodeExtra("postProcessors", List.of());
+            RagTraceContext.putNodeExtra("resultCount", rawChunks.size());
+            RagTraceContext.putNodeExtra("resultChunkIds", summarizeChunkIds(rawChunks));
+            RagTraceContext.putNodeExtra("resultChunks", summarizeChunks(rawChunks));
+            return rawChunks;
         }
 
         // 初始 Chunk 列表（所有通道的结果合并）
@@ -185,6 +209,10 @@ public class MultiChannelRetrievalEngine {
                 .collect(Collectors.toList());
 
         int initialSize = chunks.size();
+        RagTraceContext.putNodeExtra(
+                "postProcessors",
+                enabledProcessors.stream().map(SearchResultPostProcessor::getName).toList()
+        );
 
         // 依次执行处理器
         for (SearchResultPostProcessor processor : enabledProcessors) {
@@ -208,6 +236,9 @@ public class MultiChannelRetrievalEngine {
         log.info("后置处理器链执行完成 - 初始: {} 个 Chunk, 最终: {} 个 Chunk",
                 initialSize, chunks.size());
 
+        RagTraceContext.putNodeExtra("resultCount", chunks.size());
+        RagTraceContext.putNodeExtra("resultChunkIds", summarizeChunkIds(chunks));
+        RagTraceContext.putNodeExtra("resultChunks", summarizeChunks(chunks));
         return chunks;
     }
 
@@ -220,8 +251,65 @@ public class MultiChannelRetrievalEngine {
         return SearchContext.builder()
                 .originalQuestion(question)
                 .rewrittenQuestion(question)
+                .subQuestions(
+                        CollUtil.isEmpty(subIntents)
+                                ? List.of()
+                                : subIntents.stream().map(SubQuestionIntent::subQuestion).toList()
+                )
                 .intents(subIntents)
                 .topK(topK)
                 .build();
+    }
+
+    private void recordRetrievalInputs(SearchContext context) {
+        RagTraceContext.putNodeExtra("topK", context.getTopK());
+        RagTraceContext.putNodeExtra("mainQuestion", context.getMainQuestion());
+        RagTraceContext.putNodeExtra("subQuestions", context.getSubQuestions());
+    }
+
+    private List<Map<String, Object>> summarizeChannelResults(List<SearchChannelResult> results) {
+        return results.stream().map(result -> {
+            Map<String, Object> summary = new LinkedHashMap<>();
+            summary.put("channelName", result.getChannelName());
+            summary.put("channelType", result.getChannelType() == null ? null : result.getChannelType().name());
+            summary.put("confidence", result.getConfidence());
+            summary.put("latencyMs", result.getLatencyMs());
+            summary.put("chunkCount", result.getChunks() == null ? 0 : result.getChunks().size());
+            summary.put("chunkIds", summarizeChunkIds(result.getChunks()));
+            if (result.getMetadata() != null && !result.getMetadata().isEmpty()) {
+                summary.put("metadata", result.getMetadata());
+            }
+            return summary;
+        }).toList();
+    }
+
+    private List<String> summarizeChunkIds(List<RetrievedChunk> chunks) {
+        if (CollUtil.isEmpty(chunks)) {
+            return List.of();
+        }
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        for (RetrievedChunk chunk : chunks) {
+            if (chunk == null || chunk.getId() == null || chunk.getId().isBlank()) {
+                continue;
+            }
+            ids.add(chunk.getId());
+        }
+        return ids.stream().limit(10).toList();
+    }
+
+    private List<Map<String, Object>> summarizeChunks(List<RetrievedChunk> chunks) {
+        if (CollUtil.isEmpty(chunks)) {
+            return List.of();
+        }
+        return chunks.stream()
+                .filter(Objects::nonNull)
+                .limit(10)
+                .map(chunk -> {
+                    Map<String, Object> summary = new LinkedHashMap<>();
+                    summary.put("id", chunk.getId());
+                    summary.put("score", chunk.getScore());
+                    return summary;
+                })
+                .toList();
     }
 }

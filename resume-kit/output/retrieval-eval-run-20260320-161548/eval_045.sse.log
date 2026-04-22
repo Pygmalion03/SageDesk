@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_045-a17a2a96","taskId":"2034908066377424897"}
+
+event:cancel
+data:{"messageId":"null","title":"切块参数量级"}
+
+event:done
+data:[DONE]
+

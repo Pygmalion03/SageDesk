@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_056-eab7040f","taskId":"2034911632672481281"}
+
+event:cancel
+data:{"messageId":"null","title":"推荐亮点三面试问题"}
+
+event:done
+data:[DONE]
+

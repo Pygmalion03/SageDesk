@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_051-d722006c","taskId":"2034910149163933697"}
+
+event:cancel
+data:{"messageId":"null","title":"RAG效果亮点最推荐写什么"}
+
+event:done
+data:[DONE]
+

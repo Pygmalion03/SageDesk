@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_007-9c979a9d","taskId":"2034886329468248065"}
+
+event:cancel
+data:{"messageId":"null","title":"项目天然适合简历"}
+
+event:done
+data:[DONE]
+

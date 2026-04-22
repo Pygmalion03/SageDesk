@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_040-f4458594","taskId":"2034906281235505153"}
+
+event:cancel
+data:{"messageId":"null","title":"简历 dashboard 指标 易被追问 数据"}
+
+event:done
+data:[DONE]
+

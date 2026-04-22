@@ -19,6 +19,8 @@ package com.nageoffer.ai.ragent.rag.aop;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.trace.RagTraceContext;
 import com.nageoffer.ai.ragent.framework.trace.RagTraceNode;
@@ -39,6 +41,7 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.Date;
+import java.util.Map;
 
 /**
  * 注解式 RAG Trace 采集切面
@@ -56,6 +59,7 @@ public class RagTraceAspect {
 
     private final RagTraceRecordService traceRecordService;
     private final RagTraceProperties traceProperties;
+    private final ObjectMapper objectMapper;
 
     @Around("@annotation(traceRoot)")
     public Object aroundRoot(ProceedingJoinPoint joinPoint, RagTraceRoot traceRoot) throws Throwable {
@@ -153,6 +157,7 @@ public class RagTraceAspect {
                     nodeId,
                     STATUS_SUCCESS,
                     null,
+                    serializeCurrentNodeExtraData(),
                     new Date(),
                     System.currentTimeMillis() - startMillis
             );
@@ -163,6 +168,7 @@ public class RagTraceAspect {
                     nodeId,
                     STATUS_ERROR,
                     truncateError(ex),
+                    serializeCurrentNodeExtraData(),
                     new Date(),
                     System.currentTimeMillis() - startMillis
             );
@@ -202,5 +208,18 @@ public class RagTraceAspect {
             return message;
         }
         return message.substring(0, traceProperties.getMaxErrorLength());
+    }
+
+    private String serializeCurrentNodeExtraData() {
+        Map<String, Object> extraData = RagTraceContext.currentNodeExtraData();
+        if (extraData.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(extraData);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialize rag trace node extra data", ex);
+            return null;
+        }
     }
 }

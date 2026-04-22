@@ -82,7 +82,11 @@ public class RoutingLLMService implements LLMService {
     public String chat(ChatRequest request) {
         return executor.executeWithFallback(
                 ModelCapability.CHAT,
-                selector.selectChatCandidates(request.getThinking()),
+                selector.selectChatCandidates(
+                        request.getThinking(),
+                        request.requiresMultimodal(),
+                        request.getPreferredModelId()
+                ),
                 target -> clientsByProvider.get(target.candidate().getProvider()),
                 (client, target) -> client.chat(request, target)
         );
@@ -91,7 +95,11 @@ public class RoutingLLMService implements LLMService {
     @Override
     @RagTraceNode(name = "llm-stream-routing", type = "LLM_ROUTING")
     public StreamCancellationHandle streamChat(ChatRequest request, StreamCallback callback) {
-        List<ModelTarget> targets = selector.selectChatCandidates(request.getThinking());
+        List<ModelTarget> targets = selector.selectChatCandidates(
+                request.getThinking(),
+                request.requiresMultimodal(),
+                request.getPreferredModelId()
+        );
         if (CollUtil.isEmpty(targets)) {
             throw new RemoteException(STREAM_NO_PROVIDER_MESSAGE);
         }

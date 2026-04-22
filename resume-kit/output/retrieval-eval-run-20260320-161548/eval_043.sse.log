@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_043-8db648d6","taskId":"2034907387999084545"}
+
+event:cancel
+data:{"messageId":"null","title":"两类文档处理模式"}
+
+event:done
+data:[DONE]
+

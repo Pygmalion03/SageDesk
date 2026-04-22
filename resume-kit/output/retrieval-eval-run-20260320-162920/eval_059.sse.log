@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_059-ee457e5b","taskId":"2034912522699595777"}
+
+event:cancel
+data:{"messageId":"null","title":"讲完整体链路后为何再讲工程难点"}
+
+event:done
+data:[DONE]
+

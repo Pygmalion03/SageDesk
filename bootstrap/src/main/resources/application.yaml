@@ -39,7 +39,23 @@ rag:
   default:
     collection-name: rag_default_store
     dimension: 4096
+    image-dimension: 1024
+    image-collection-suffix: _images
+    visual-answer-model: qwen3-vl-8b-thinking
+    visual-answer-image-limit: 4
     metric-type: COSINE
+
+  document-analysis:
+    enabled: false
+    auto-detect: true
+    fallback-to-tika-on-error: true
+    base-url: http://localhost:8099
+    endpoint: /v1/document-analysis
+    default-mode: pp_structure_v3
+    fallback-mode: paddleocr_vl_1_5
+    auto-mime-types:
+      - PDF
+      - IMAGE
 
   query-rewrite:
     enabled: true
@@ -79,6 +95,11 @@ rag:
       vector-global:
         confidence-threshold: 0.6
         top-k-multiplier: 3
+      visual-global:
+        enabled: false
+        top-k-multiplier: 2
+        embedding-model: qwen3-vl-embedding-1024
+        rerank-model: qwen3-vl-rerank
       intent-directed:
         min-intent-score: 0.4
         top-k-multiplier: 2
@@ -99,6 +120,7 @@ ai:
       api-key: ${BAILIAN_API_KEY:}
       endpoints:
         chat: /compatible-mode/v1/chat/completions
+        embedding: /compatible-mode/v1/embeddings
         rerank: /api/v1/services/rerank/text-rerank/text-rerank
     siliconflow:
       url: https://api.siliconflow.cn
@@ -127,6 +149,12 @@ ai:
         model: qwen3-max
         supports-thinking: true
         priority: 3
+      - id: qwen3-vl-8b-thinking
+        provider: bailian
+        model: qwen3-vl-8b-thinking
+        supports-thinking: true
+        supports-multimodal: true
+        priority: 2
       - id: glm-4.7
         provider: siliconflow
         model: Pro/zai-org/GLM-4.7
@@ -134,12 +162,22 @@ ai:
         priority: 0
       - id: qwen3-local
         provider: ollama
-        model: qwen3:8b-fp16
+        model: qwen3:8b
         priority: 2
+      - id: qwen3-local-fast
+        provider: ollama
+        model: qwen3:4b
+        priority: 1
 
   embedding:
     default-model: qwen-emb-8b
     candidates:
+      - id: qwen3-vl-embedding-1024
+        provider: bailian
+        model: qwen3-vl-embedding
+        url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding
+        dimension: 1024
+        priority: 0
       - id: qwen-emb-8b
         provider: siliconflow
         model: Qwen/Qwen3-Embedding-8B
@@ -154,6 +192,10 @@ ai:
   rerank:
     default-model: qwen3-rerank
     candidates:
+      - id: qwen3-vl-rerank
+        provider: bailian
+        model: qwen3-vl-rerank
+        priority: 0
       - id: qwen3-rerank
         provider: bailian
         model: qwen3-rerank

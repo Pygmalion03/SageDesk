@@ -58,6 +58,14 @@ public class RAGDefaultProperties {
      */
     private Integer dimension;
 
+    private String imageCollectionSuffix = "_images";
+
+    private Integer imageDimension = 1024;
+
+    private String visualAnswerModel = "qwen3-vl-8b-thinking";
+
+    private Integer visualAnswerImageLimit = 4;
+
     /**
      * 向量相似度度量类型
      * <p>

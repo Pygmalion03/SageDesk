@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_015-c83fc229","taskId":"2034895464167432193"}
+
+event:cancel
+data:{"messageId":"null","title":"检索前问题重写原因"}
+
+event:done
+data:[DONE]
+

@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_057-18315f23","taskId":"2034911937585799169"}
+
+event:cancel
+data:{"messageId":"null","title":"深挖项目回答顺序先讲业务目标"}
+
+event:done
+data:[DONE]
+

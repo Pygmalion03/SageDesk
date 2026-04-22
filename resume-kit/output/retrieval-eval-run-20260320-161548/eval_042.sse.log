@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_042-05e7bc12","taskId":"2034907057135607809"}
+
+event:cancel
+data:{"messageId":"null","title":"文档上传异步切块"}
+
+event:done
+data:[DONE]
+

@@ -28,6 +28,8 @@ public enum SearchChannelType {
      */
     VECTOR_GLOBAL,
 
+    VISUAL_GLOBAL,
+
     /**
      * 意图定向检索
      * 基于意图识别结果，在特定知识库中检索

@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_002-0b0b7cec","taskId":"2034881707387183105"}
+
+event:cancel
+data:{"messageId":"null","title":"新对话"}
+
+event:done
+data:[DONE]
+

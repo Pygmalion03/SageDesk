@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-9-cf1d6ac1","taskId":"2034859678122430464"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034859678109847552","title":"双检索加重排序流程"}
+
+event:done
+data:[DONE]
+

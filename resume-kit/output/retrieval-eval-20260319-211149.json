@@ -1,0 +1,238 @@
+﻿{
+    "generatedAt":  "2026-03-19T21:14:18",
+    "datasetName":  "resume-rag-eval-v1",
+    "caseCount":  6,
+    "topN":  3,
+    "recallAtNPercent":  100,
+    "avgKeywordCoveragePercent":  100,
+    "cases":  [
+                  {
+                      "id":  "eval_001",
+                      "question":  "这个项目的双路检索和 Rerank 具体怎么提升复杂问答场景的召回率？",
+                      "traceId":  "2034618848115732480",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "retrieval_pipeline",
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611315770699776",
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985"
+                                          ],
+                      "keywordCoveragePct":  100,
+                      "matchedKeywords":  [
+                                              "双路检索",
+                                              "问题重写",
+                                              "Rerank",
+                                              "召回率"
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260319-211149\\eval_001.sse.log"
+                  },
+                  {
+                      "id":  "eval_002",
+                      "question":  "如果并发用户很多，这个项目是怎么用 Redis 做全局排队限流的？",
+                      "traceId":  "2034618976398520320",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "queue_stability",
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611332950568960",
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611333055426561",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611333055426561",
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  100,
+                      "matchedKeywords":  [
+                                              "Redis",
+                                              "Lua",
+                                              "ZSET",
+                                              "排队",
+                                              "限流"
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260319-211149\\eval_002.sse.log"
+                  },
+                  {
+                      "id":  "eval_003",
+                      "question":  "这个项目里的 dashboard 和 trace 能帮你量化哪些核心指标？",
+                      "traceId":  "2034619061710663680",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "trace_dashboard",
+                                              "resume_highlights"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611341666332672",
+                                             "2034611359152386048"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611359240466433"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611307314982913",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611341796356097",
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  100,
+                      "matchedKeywords":  [
+                                              "成功率",
+                                              "错误率",
+                                              "P95",
+                                              "Trace",
+                                              "Dashboard"
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260319-211149\\eval_003.sse.log"
+                  },
+                  {
+                      "id":  "eval_004",
+                      "question":  "知识库文档上传以后，后端是怎么做切块、向量化和索引的？",
+                      "traceId":  "2034619181948776448",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "ingestion_chunking",
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611350445010944",
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611350541479937",
+                                               "2034611307314982913",
+                                               "2034611359240466433"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611350541479937",
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  100,
+                      "matchedKeywords":  [
+                                              "切块",
+                                              "向量化",
+                                              "Milvus",
+                                              "对象存储"
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260319-211149\\eval_004.sse.log"
+                  },
+                  {
+                      "id":  "eval_005",
+                      "question":  "如果把这个项目写进简历，最能体现工程能力的三条亮点应该是什么？",
+                      "traceId":  "2034619266107486208",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "queue_stability",
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611332950568960",
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611333055426561",
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  100,
+                      "matchedKeywords":  [
+                                              "双路检索",
+                                              "高并发",
+                                              "可观测",
+                                              "量化"
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260319-211149\\eval_005.sse.log"
+                  },
+                  {
+                      "id":  "eval_006",
+                      "question":  "这个项目为什么能同时体现 Java 后端工程能力和 RAG 算法链路能力？",
+                      "traceId":  "2034619370046533632",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "retrieval_pipeline",
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611306857803776",
+                                             "2034611315770699776",
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611307314982913",
+                                               "2034611315883945985",
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611307314982913",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  100,
+                      "matchedKeywords":  [
+                                              "Java",
+                                              "RAG",
+                                              "高并发",
+                                              "检索",
+                                              "工程化"
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260319-211149\\eval_006.sse.log"
+                  }
+              ]
+}

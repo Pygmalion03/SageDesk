@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_012-3830702f","taskId":"2034894345357811713"}
+
+event:cancel
+data:{"messageId":"null","title":"意图识别后需全局向量兜底检索"}
+
+event:done
+data:[DONE]
+

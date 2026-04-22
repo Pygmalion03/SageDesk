@@ -1,0 +1,347 @@
+﻿{
+    "generatedAt":  "2026-03-20T16:41:58",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "caseCount":  10,
+    "startCaseIndex":  51,
+    "topN":  3,
+    "recallAtNPercent":  80,
+    "avgKeywordCoveragePercent":  null,
+    "cases":  [
+                  {
+                      "id":  "eval_051",
+                      "question":  "如果简历里只能保留一条 RAG 效果亮点，最推荐写什么？",
+                      "traceId":  "2034910149163933696",
+                      "taskId":  "2034910149163933697",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611341796356097",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_051.sse.log"
+                  },
+                  {
+                      "id":  "eval_052",
+                      "question":  "如果简历里只能保留一条后端性能亮点，最推荐写什么？",
+                      "traceId":  "2034910429364412416",
+                      "taskId":  "2034910429364412417",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_052.sse.log"
+                  },
+                  {
+                      "id":  "eval_053",
+                      "question":  "如果简历里只能保留一条可观测性亮点，最推荐写什么？",
+                      "traceId":  "2034910709359370240",
+                      "taskId":  "2034910709359370241",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611341796356097",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433",
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_053.sse.log"
+                  },
+                  {
+                      "id":  "eval_054",
+                      "question":  "推荐亮点一最适合回答哪些面试问题？",
+                      "traceId":  "2034911056844873728",
+                      "taskId":  "2034911056844873729",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433"
+                                           ],
+                      "returnedChunkIds":  [
+
+                                           ],
+                      "recallHit":  false,
+                      "matchedChunkIds":  [
+
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_054.sse.log"
+                  },
+                  {
+                      "id":  "eval_055",
+                      "question":  "推荐亮点二最适合回答哪些面试问题？",
+                      "traceId":  "2034911327629139968",
+                      "taskId":  "2034911327629139969",
+                      "status":  "SUCCESS",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433"
+                                           ],
+                      "returnedChunkIds":  [
+
+                                           ],
+                      "recallHit":  false,
+                      "matchedChunkIds":  [
+
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_055.sse.log"
+                  },
+                  {
+                      "id":  "eval_056",
+                      "question":  "推荐亮点三最适合回答哪些面试问题？",
+                      "traceId":  "2034911632672481280",
+                      "taskId":  "2034911632672481281",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_056.sse.log"
+                  },
+                  {
+                      "id":  "eval_057",
+                      "question":  "如果面试深挖这个项目，回答顺序为什么建议先讲业务目标？",
+                      "traceId":  "2034911937585799168",
+                      "taskId":  "2034911937585799169",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433",
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_057.sse.log"
+                  },
+                  {
+                      "id":  "eval_058",
+                      "question":  "为什么回答完业务目标后，第二步应该讲链路设计？",
+                      "traceId":  "2034912259783843840",
+                      "taskId":  "2034912259783843841",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611315883945985",
+                                               "2034611359240466433",
+                                               "2034611307314982913"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611315883945985",
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_058.sse.log"
+                  },
+                  {
+                      "id":  "eval_059",
+                      "question":  "为什么在讲完整体链路后，要再专门讲工程难点？",
+                      "traceId":  "2034912522699595776",
+                      "taskId":  "2034912522699595777",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "queue_stability"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611332950568960"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611333055426561"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_059.sse.log"
+                  },
+                  {
+                      "id":  "eval_060",
+                      "question":  "为什么这个项目只要把业务目标、链路、工程难点和数据四步讲顺，就会很像真实落地项目？",
+                      "traceId":  "2034912895271231488",
+                      "taskId":  "2034912895271231489",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "resume_highlights",
+                                              "project_overview",
+                                              "trace_dashboard"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611359152386048",
+                                             "2034611306857803776",
+                                             "2034611341666332672"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611359240466433",
+                                               "2034611307314982913",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611359240466433",
+                                              "2034611307314982913",
+                                              "2034611341796356097"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-162920\\eval_060.sse.log"
+                  }
+              ]
+}

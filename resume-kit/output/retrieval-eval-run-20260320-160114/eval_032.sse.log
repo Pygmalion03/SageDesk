@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_032-8d32c277","taskId":"2034903474046558209"}
+
+event:cancel
+data:{"messageId":"null","title":"可观测体系问题"}
+
+event:done
+data:[DONE]
+

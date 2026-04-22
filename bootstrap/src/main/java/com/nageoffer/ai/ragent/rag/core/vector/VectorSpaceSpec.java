@@ -37,4 +37,8 @@ public class VectorSpaceSpec {
      * 备注
      */
     private String remark;
+
+    private Integer dimension;
+
+    private String metricType;
 }

@@ -52,6 +52,12 @@ public class MilvusVectorStoreAdmin implements VectorStoreAdmin {
         }
 
         List<CreateCollectionReq.FieldSchema> fieldSchemaList = new ArrayList<>();
+        int dimension = spec.getDimension() != null && spec.getDimension() > 0
+                ? spec.getDimension()
+                : ragDefaultProperties.getDimension();
+        String metricType = spec.getMetricType() != null
+                ? spec.getMetricType()
+                : ragDefaultProperties.getMetricType();
 
         fieldSchemaList.add(
                 CreateCollectionReq.FieldSchema.builder()
@@ -82,7 +88,7 @@ public class MilvusVectorStoreAdmin implements VectorStoreAdmin {
                 CreateCollectionReq.FieldSchema.builder()
                         .name("embedding")
                         .dataType(DataType.FloatVector)
-                        .dimension(ragDefaultProperties.getDimension())
+                        .dimension(dimension)
                         .build()
         );
 
@@ -108,7 +114,7 @@ public class MilvusVectorStoreAdmin implements VectorStoreAdmin {
                 .collectionSchema(collectionSchema)
                 .primaryFieldName("doc_id")
                 .vectorFieldName("embedding")
-                .metricType(ragDefaultProperties.getMetricType())
+                .metricType(metricType)
                 .consistencyLevel(ConsistencyLevel.BOUNDED)
                 .indexParams(List.of(hnswIndex))
                 .description(spec.getRemark())

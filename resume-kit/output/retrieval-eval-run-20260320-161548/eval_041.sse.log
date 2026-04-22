@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_041-0fc9e644","taskId":"2034906742860603393"}
+
+event:cancel
+data:{"messageId":"null","title":"文件数据库记录和向量索引分工"}
+
+event:done
+data:[DONE]
+

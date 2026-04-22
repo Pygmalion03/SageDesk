@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_053-5b0f482d","taskId":"2034910709359370241"}
+
+event:cancel
+data:{"messageId":"null","title":"简历可观测性亮点最推荐"}
+
+event:done
+data:[DONE]
+

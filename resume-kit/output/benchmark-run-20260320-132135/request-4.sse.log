@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-4-1fb64b0d","taskId":"2034863372872245248"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034863372859662336","title":"双检索和重排序流水线核心思想"}
+
+event:done
+data:[DONE]
+

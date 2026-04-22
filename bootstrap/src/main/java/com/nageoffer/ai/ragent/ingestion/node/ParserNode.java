@@ -19,6 +19,10 @@ package com.nageoffer.ai.ragent.ingestion.node;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nageoffer.ai.ragent.core.parser.DocumentParser;
+import com.nageoffer.ai.ragent.core.parser.DocumentParserSelector;
+import com.nageoffer.ai.ragent.core.parser.ParseResult;
+import com.nageoffer.ai.ragent.core.parser.ParserType;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.ingestion.domain.context.IngestionContext;
 import com.nageoffer.ai.ragent.ingestion.domain.context.StructuredDocument;
@@ -27,30 +31,32 @@ import com.nageoffer.ai.ragent.ingestion.domain.pipeline.NodeConfig;
 import com.nageoffer.ai.ragent.ingestion.domain.result.NodeResult;
 import com.nageoffer.ai.ragent.ingestion.domain.settings.ParserSettings;
 import com.nageoffer.ai.ragent.ingestion.util.MimeTypeDetector;
-import com.nageoffer.ai.ragent.core.parser.DocumentParser;
-import com.nageoffer.ai.ragent.core.parser.DocumentParserSelector;
-import com.nageoffer.ai.ragent.core.parser.ParseResult;
-import com.nageoffer.ai.ragent.core.parser.ParserType;
+import com.nageoffer.ai.ragent.rag.config.DocumentAnalysisProperties;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 文档解析节点
- * 负责将输入的字节流（如 PDF、Word、Excel 等）解析为结构化的文本或文档对象
- */
 @Component
 public class ParserNode implements IngestionNode {
 
     private final ObjectMapper objectMapper;
     private final DocumentParserSelector parserSelector;
+    private final DocumentAnalysisProperties documentAnalysisProperties;
+    private final RAGDefaultProperties ragDefaultProperties;
 
-    public ParserNode(ObjectMapper objectMapper, DocumentParserSelector parserSelector) {
+    public ParserNode(ObjectMapper objectMapper,
+                      DocumentParserSelector parserSelector,
+                      DocumentAnalysisProperties documentAnalysisProperties,
+                      RAGDefaultProperties ragDefaultProperties) {
         this.objectMapper = objectMapper;
         this.parserSelector = parserSelector;
+        this.documentAnalysisProperties = documentAnalysisProperties;
+        this.ragDefaultProperties = ragDefaultProperties;
     }
 
     @Override
@@ -61,7 +67,7 @@ public class ParserNode implements IngestionNode {
     @Override
     public NodeResult execute(IngestionContext context, NodeConfig config) {
         if (context.getRawBytes() == null || context.getRawBytes().length == 0) {
-            return NodeResult.fail(new ClientException("解析器缺少原始字节"));
+            return NodeResult.fail(new ClientException("Parser node requires raw document bytes"));
         }
 
         String mimeType = context.getMimeType();
@@ -73,43 +79,74 @@ public class ParserNode implements IngestionNode {
 
         ParserSettings settings = parseSettings(config.getSettings());
         String fileName = context.getSource() == null ? null : context.getSource().getFileName();
-
-        // 验证文件类型是否符合配置
         validateMimeType(settings, mimeType, fileName);
 
         ParserSettings.ParserRule rule = matchRule(settings, mimeType, fileName);
-        DocumentParser parser = parserSelector.select(ParserType.TIKA.getType());
+        String parserType = resolveParserType(rule, mimeType, fileName);
+        DocumentParser parser = parserSelector.select(parserType);
         if (parser == null) {
-            return NodeResult.fail(new ClientException("未配置 Tika 解析器"));
+            return NodeResult.fail(new ClientException("Parser not found: " + parserType));
         }
 
-        Map<String, Object> options = rule == null ? Collections.emptyMap() : rule.getOptions();
-        ParseResult result = parser.parse(context.getRawBytes(), mimeType, options);
+        Map<String, Object> options = new HashMap<>();
+        if (rule != null && rule.getOptions() != null) {
+            options.putAll(rule.getOptions());
+        }
+        if (StringUtils.hasText(fileName)) {
+            options.putIfAbsent("fileName", fileName);
+        }
+        if (context.getSource() != null && StringUtils.hasText(context.getSource().getLocation())) {
+            options.putIfAbsent("sourceLocation", context.getSource().getLocation());
+        }
+        String storageBucket = context.getVectorSpaceId() != null
+                ? context.getVectorSpaceId().getLogicalName()
+                : ragDefaultProperties.getCollectionName();
+        if (StringUtils.hasText(storageBucket)) {
+            options.putIfAbsent("storageBucket", storageBucket);
+        }
+        ParseResult result;
+        try {
+            result = parser.parse(context.getRawBytes(), mimeType, options);
+        } catch (Exception ex) {
+            if (shouldFallbackToTika(parserType)) {
+                DocumentParser tikaParser = parserSelector.select(ParserType.TIKA.getType());
+                if (tikaParser == null) {
+                    return NodeResult.fail(new ClientException("Paddle parse failed and Tika fallback is unavailable: " + ex.getMessage()));
+                }
+                result = tikaParser.parse(context.getRawBytes(), mimeType, Collections.emptyMap());
+            } else if (ex instanceof RuntimeException runtimeException) {
+                return NodeResult.fail(runtimeException);
+            } else {
+                return NodeResult.fail(new ClientException("Document parse failed: " + ex.getMessage()));
+            }
+        }
+
         context.setRawText(result.text());
 
-        // 将 ParseResult 转换为 StructuredDocument
-        StructuredDocument document = StructuredDocument.builder()
+        StructuredDocument document = result.document() != null
+                ? result.document()
+                : StructuredDocument.builder()
                 .text(result.text())
                 .metadata(result.metadata())
                 .build();
+        if (!StringUtils.hasText(document.getText())) {
+            document.setText(result.text());
+        }
+        if (document.getMetadata() == null) {
+            document.setMetadata(result.metadata());
+        }
         context.setDocument(document);
+        context.setMetadata(mergeMetadata(context.getMetadata(), result.metadata()));
 
-        return NodeResult.ok("解析文本长度=" + (result.text() == null ? 0 : result.text().length()));
+        return NodeResult.ok("Parsed text length=" + (result.text() == null ? 0 : result.text().length()));
     }
 
-    /**
-     * 验证文件类型是否符合配置的规则
-     * 如果配置了规则但文件类型不匹配，则抛出异常
-     */
     private void validateMimeType(ParserSettings settings, String mimeType, String fileName) {
         if (settings == null || settings.getRules() == null || settings.getRules().isEmpty()) {
-            // 没有配置规则，允许所有类型
             return;
         }
 
         String resolvedType = resolveType(mimeType, fileName);
-
-        // 检查是否有匹配的规则
         boolean hasMatch = false;
         for (ParserSettings.ParserRule rule : settings.getRules()) {
             if (rule == null || !StringUtils.hasText(rule.getMimeType())) {
@@ -126,7 +163,6 @@ public class ParserNode implements IngestionNode {
         }
 
         if (!hasMatch) {
-            // 构建允许的类型列表用于错误提示
             List<String> allowedTypes = settings.getRules().stream()
                     .filter(rule -> rule != null && StringUtils.hasText(rule.getMimeType()))
                     .map(rule -> normalizeType(rule.getMimeType()))
@@ -134,11 +170,11 @@ public class ParserNode implements IngestionNode {
                     .distinct()
                     .toList();
 
-            throw new ClientException(
-                    String.format("文件类型不符合要求。当前文件类型: %s，允许的类型: %s",
-                            resolvedType,
-                            String.join(", ", allowedTypes))
-            );
+            throw new ClientException(String.format(
+                    "Document type is not allowed. Current=%s, allowed=%s",
+                    resolvedType,
+                    String.join(", ", allowedTypes)
+            ));
         }
     }
 
@@ -167,6 +203,22 @@ public class ParserNode implements IngestionNode {
             }
         }
         return null;
+    }
+
+    private String resolveParserType(ParserSettings.ParserRule rule, String mimeType, String fileName) {
+        if (rule != null && StringUtils.hasText(rule.getParserType())) {
+            return normalizeParserType(rule.getParserType());
+        }
+        String resolvedType = resolveType(mimeType, fileName);
+        if (documentAnalysisProperties.isEnabled()
+                && documentAnalysisProperties.isAutoDetect()
+                && documentAnalysisProperties.getAutoMimeTypes() != null
+                && documentAnalysisProperties.getAutoMimeTypes().stream()
+                .map(this::normalizeType)
+                .anyMatch(resolvedType::equalsIgnoreCase)) {
+            return ParserType.PADDLE_DOCUMENT_ANALYSIS.getType();
+        }
+        return ParserType.TIKA.getType();
     }
 
     private String resolveType(String mimeType, String fileName) {
@@ -248,5 +300,42 @@ public class ParserNode implements IngestionNode {
             case "PDF" -> "PDF";
             default -> value;
         };
+    }
+
+    private String normalizeParserType(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return ParserType.TIKA.getType();
+        }
+        if (ParserType.TIKA.getType().equalsIgnoreCase(raw) || "TIKA".equalsIgnoreCase(raw)) {
+            return ParserType.TIKA.getType();
+        }
+        if (ParserType.MARKDOWN.getType().equalsIgnoreCase(raw) || "MARKDOWN".equalsIgnoreCase(raw)) {
+            return ParserType.MARKDOWN.getType();
+        }
+        if (ParserType.PADDLE_DOCUMENT_ANALYSIS.getType().equalsIgnoreCase(raw)
+                || "PADDLE".equalsIgnoreCase(raw)
+                || "PADDLE_DOCUMENT_ANALYSIS".equalsIgnoreCase(raw)) {
+            return ParserType.PADDLE_DOCUMENT_ANALYSIS.getType();
+        }
+        return raw;
+    }
+
+    private boolean shouldFallbackToTika(String parserType) {
+        return ParserType.PADDLE_DOCUMENT_ANALYSIS.getType().equalsIgnoreCase(parserType)
+                && documentAnalysisProperties.isFallbackToTikaOnError();
+    }
+
+    private Map<String, Object> mergeMetadata(Map<String, Object> existing, Map<String, Object> parsed) {
+        if ((existing == null || existing.isEmpty()) && (parsed == null || parsed.isEmpty())) {
+            return null;
+        }
+        Map<String, Object> merged = new HashMap<>();
+        if (existing != null) {
+            merged.putAll(existing);
+        }
+        if (parsed != null) {
+            merged.putAll(parsed);
+        }
+        return merged;
     }
 }

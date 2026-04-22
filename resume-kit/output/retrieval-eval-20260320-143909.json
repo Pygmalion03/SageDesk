@@ -1,0 +1,107 @@
+﻿{
+    "generatedAt":  "2026-03-20T14:45:05",
+    "datasetName":  "resume-rag-eval-v2",
+    "evaluationMode":  "retrieval-only",
+    "caseCount":  3,
+    "topN":  3,
+    "recallAtNPercent":  100,
+    "avgKeywordCoveragePercent":  null,
+    "cases":  [
+                  {
+                      "id":  "eval_001",
+                      "question":  "这个项目为什么不是普通聊天 Demo，而是更偏企业知识问答系统？",
+                      "traceId":  "2034882419064102912",
+                      "taskId":  "2034882419064102913",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611307314982913",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-143909\\eval_001.sse.log"
+                  },
+                  {
+                      "id":  "eval_002",
+                      "question":  "这个项目为什么能同时体现 Java 后端工程能力和 RAG 算法链路能力？",
+                      "traceId":  "2034883105554227200",
+                      "taskId":  "2034883105554227201",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "project_overview",
+                                              "retrieval_pipeline"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611306857803776",
+                                             "2034611315770699776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611307314982913",
+                                               "2034611315883945985"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611307314982913",
+                                               "2034611359240466433",
+                                               "2034611341796356097"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-143909\\eval_002.sse.log"
+                  },
+                  {
+                      "id":  "eval_003",
+                      "question":  "一次对话请求进入系统后，主链路大概会经过哪些阶段？",
+                      "traceId":  "2034883571679813632",
+                      "taskId":  "2034883571679813633",
+                      "status":  "RUNNING",
+                      "topN":  3,
+                      "expectedDocKeys":  [
+                                              "project_overview"
+                                          ],
+                      "expectedDocIds":  [
+                                             "2034611306857803776"
+                                         ],
+                      "expectedChunkIds":  [
+                                               "2034611307314982913"
+                                           ],
+                      "returnedChunkIds":  [
+                                               "2034611341796356097",
+                                               "2034611307314982913",
+                                               "2034611350541479937"
+                                           ],
+                      "recallHit":  true,
+                      "matchedChunkIds":  [
+                                              "2034611307314982913"
+                                          ],
+                      "keywordCoveragePct":  null,
+                      "matchedKeywords":  [
+
+                                          ],
+                      "sseFile":  "E:\\Projects\\ragent\\resume-kit\\output\\retrieval-eval-run-20260320-143909\\eval_003.sse.log"
+                  }
+              ]
+}

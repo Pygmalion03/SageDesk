@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_016-45c0b44b","taskId":"2034895828887330817"}
+
+event:cancel
+data:{"messageId":"null","title":"复合问题拆分子问题检索原因"}
+
+event:done
+data:[DONE]
+

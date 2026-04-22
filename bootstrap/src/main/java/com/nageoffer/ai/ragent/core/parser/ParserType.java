@@ -35,7 +35,9 @@ public enum ParserType {
     /**
      * Markdown 解析器
      */
-    MARKDOWN("Markdown");
+    MARKDOWN("Markdown"),
+
+    PADDLE_DOCUMENT_ANALYSIS("PaddleDocumentAnalysis");
 
     /**
      * 解析器类型名称

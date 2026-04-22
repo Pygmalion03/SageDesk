@@ -54,6 +54,8 @@ public class RetrieveRequest {
      */
     private String collectionName;
 
+    private String embeddingModel;
+
     /**
      * 元数据等值过滤条件（扩展项）：
      * - key 为 metadata 字段名

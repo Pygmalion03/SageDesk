@@ -44,44 +44,29 @@ public class DefaultContextFormatter implements ContextFormatter {
         if (CollUtil.isEmpty(kbIntents)) {
             return formatChunksWithoutIntent(rerankedByIntent, topK);
         }
-
-        // 多意图场景：合并所有规则和文档
         if (kbIntents.size() > 1) {
             return formatMultiIntentContext(kbIntents, rerankedByIntent, topK);
         }
-
-        // 单意图场景：保持原有逻辑
         return formatSingleIntentContext(kbIntents.get(0), rerankedByIntent, topK);
     }
 
-    /**
-     * 格式化单意图上下文
-     */
     private String formatSingleIntentContext(NodeScore nodeScore, Map<String, List<RetrievedChunk>> rerankedByIntent, int topK) {
         List<RetrievedChunk> chunks = rerankedByIntent.get(nodeScore.getNode().getId());
         if (CollUtil.isEmpty(chunks)) {
             return "";
         }
         String snippet = StrUtil.emptyIfNull(nodeScore.getNode().getPromptSnippet()).trim();
-        String body = chunks.stream()
-                .limit(topK)
-                .map(RetrievedChunk::getText)
-                .collect(Collectors.joining("\n"));
         StringBuilder block = new StringBuilder();
         if (StrUtil.isNotBlank(snippet)) {
             block.append("#### 回答规则\n").append(snippet).append("\n\n");
         }
-        block.append("#### 知识库片段\n````text\n").append(body).append("\n````");
-        return block.toString();
+        block.append(formatChunkGroups(chunks, topK));
+        return block.toString().trim();
     }
 
-    /**
-     * 格式化多意图上下文
-     */
     private String formatMultiIntentContext(List<NodeScore> kbIntents, Map<String, List<RetrievedChunk>> rerankedByIntent, int topK) {
         StringBuilder result = new StringBuilder();
 
-        // 1. 合并所有意图的回答规则
         List<String> snippets = kbIntents.stream()
                 .map(ns -> ns.getNode().getPromptSnippet())
                 .filter(StrUtil::isNotBlank)
@@ -97,7 +82,6 @@ public class DefaultContextFormatter implements ContextFormatter {
             result.append("\n");
         }
 
-        // 2. 合并所有意图的文档片段（去重）
         List<RetrievedChunk> allChunks = rerankedByIntent.values().stream()
                 .flatMap(List::stream)
                 .distinct()
@@ -105,13 +89,9 @@ public class DefaultContextFormatter implements ContextFormatter {
                 .toList();
 
         if (!allChunks.isEmpty()) {
-            String body = allChunks.stream()
-                    .map(RetrievedChunk::getText)
-                    .collect(Collectors.joining("\n"));
-            result.append("#### 知识库片段\n````text\n").append(body).append("\n````");
+            result.append(formatChunkGroups(allChunks, topK));
         }
-
-        return result.toString();
+        return result.toString().trim();
     }
 
     private String formatChunksWithoutIntent(Map<String, List<RetrievedChunk>> rerankedByIntent, int topK) {
@@ -134,11 +114,60 @@ public class DefaultContextFormatter implements ContextFormatter {
         if (chunks.isEmpty()) {
             return "";
         }
+        return formatChunkGroups(chunks, topK);
+    }
 
-        String body = chunks.stream()
-                .map(RetrievedChunk::getText)
-                .collect(Collectors.joining("\n"));
-        return "#### 知识库片段\n````text\n" + body + "\n````";
+    private String formatChunkGroups(List<RetrievedChunk> chunks, int topK) {
+        List<RetrievedChunk> limited = chunks.stream()
+                .limit(topK > 0 ? topK : chunks.size())
+                .toList();
+        List<RetrievedChunk> textChunks = limited.stream().filter(chunk -> !chunk.isVisual()).toList();
+        List<RetrievedChunk> visualChunks = limited.stream().filter(RetrievedChunk::isVisual).toList();
+
+        StringBuilder block = new StringBuilder();
+        if (!textChunks.isEmpty()) {
+            String body = textChunks.stream()
+                    .map(RetrievedChunk::getText)
+                    .collect(Collectors.joining("\n"));
+            block.append("#### 知识库片段\n````text\n").append(body).append("\n````");
+        }
+        if (!visualChunks.isEmpty()) {
+            if (block.length() > 0) {
+                block.append("\n\n");
+            }
+            block.append("#### 图片证据\n");
+            for (RetrievedChunk visualChunk : visualChunks) {
+                block.append(formatVisualChunk(visualChunk)).append("\n");
+            }
+        }
+        return block.toString().trim();
+    }
+
+    private String formatVisualChunk(RetrievedChunk chunk) {
+        Map<String, Object> metadata = chunk.getMetadata() == null ? Map.of() : chunk.getMetadata();
+        Object blockType = metadata.get("block_type");
+        Object pageNo = metadata.get("page_no");
+        Object imageUri = metadata.get("image_uri");
+        Object summary = metadata.get("summary");
+        Object bbox = metadata.get("bbox");
+
+        StringBuilder line = new StringBuilder("- ");
+        if (blockType != null) {
+            line.append("type=").append(blockType).append("; ");
+        }
+        if (pageNo != null) {
+            line.append("page=").append(pageNo).append("; ");
+        }
+        if (imageUri != null) {
+            line.append("image=").append(imageUri).append("; ");
+        }
+        if (bbox != null) {
+            line.append("bbox=").append(bbox).append("; ");
+        }
+
+        String description = summary != null ? String.valueOf(summary) : chunk.getText();
+        line.append("desc=").append(StrUtil.emptyIfNull(description));
+        return line.toString();
     }
 
     @Override
@@ -187,9 +216,6 @@ public class DefaultContextFormatter implements ContextFormatter {
                 .collect(Collectors.joining("\n\n"));
     }
 
-    /**
-     * 将多个 MCP 响应合并为文本（用于拼接到 Prompt）
-     */
     private String mergeResponsesToText(List<MCPResponse> responses) {
         if (responses == null || responses.isEmpty()) {
             return "";
@@ -202,26 +228,22 @@ public class DefaultContextFormatter implements ContextFormatter {
             if (response.isSuccess() && response.getTextResult() != null) {
                 successResults.add(response.getTextResult());
             } else if (!response.isSuccess()) {
-                errorResults.add(String.format("工具 %s 调用失败: %s",
-                        response.getToolId(), response.getErrorMessage()));
+                errorResults.add(String.format("工具 %s 调用失败: %s", response.getToolId(), response.getErrorMessage()));
             }
         }
 
         StringBuilder sb = new StringBuilder();
-
         if (!successResults.isEmpty()) {
             for (String result : successResults) {
                 sb.append(result).append("\n\n");
             }
         }
-
         if (!errorResults.isEmpty()) {
             sb.append("【部分查询失败】\n");
             for (String error : errorResults) {
                 sb.append("- ").append(error).append("\n");
             }
         }
-
         return sb.toString().trim();
     }
 }

@@ -1,0 +1,33 @@
+﻿{
+    "generatedAt":  "2026-03-19T21:19:07",
+    "baseUrl":  "http://localhost:9090/api/ragent",
+    "question":  "What metrics can this RAG dashboard report?",
+    "concurrency":  1,
+    "requests":  1,
+    "successCount":  0,
+    "failureCount":  1,
+    "wallTimeSeconds":  0.33,
+    "throughputQps":  0,
+    "avgTotalMs":  5.12,
+    "p95TotalMs":  5.12,
+    "avgTtfbMs":  4.53,
+    "p95TtfbMs":  4.53,
+    "results":  [
+                    {
+                        "requestIndex":  1,
+                        "conversationId":  "resume-bench-1-0f3200a7",
+                        "exitCode":  0,
+                        "httpCode":  200,
+                        "success":  false,
+                        "rejected":  false,
+                        "hasErrorEvent":  false,
+                        "timeTotalMs":  5.12,
+                        "timeToFirstByteMs":  4.53,
+                        "sizeDownload":  94,
+                        "bodyFile":  "E:\\Projects\\ragent\\resume-kit\\output\\benchmark-run-20260319-211907\\request-1.sse.log",
+                        "PSComputerName":  "localhost",
+                        "RunspaceId":  "0484efe6-d844-45f1-b0a1-7e6b3b5415d7",
+                        "PSShowComputerName":  false
+                    }
+                ]
+}

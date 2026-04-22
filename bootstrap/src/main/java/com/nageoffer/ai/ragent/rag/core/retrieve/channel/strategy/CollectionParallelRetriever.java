@@ -27,11 +27,14 @@ import java.util.List;
 import java.util.concurrent.Executor;
 
 /**
- * Collection 并行检索器
- * 继承模板类，实现 Collection 特定的检索逻辑
+ * Collection parallel retriever.
  */
 @Slf4j
-public class CollectionParallelRetriever extends AbstractParallelRetriever<String> {
+public class CollectionParallelRetriever
+        extends AbstractParallelRetriever<CollectionParallelRetriever.CollectionTarget> {
+
+    public record CollectionTarget(String collectionName, String embeddingModel) {
+    }
 
     private final RetrieverService retrieverService;
 
@@ -41,28 +44,30 @@ public class CollectionParallelRetriever extends AbstractParallelRetriever<Strin
     }
 
     @Override
-    protected List<RetrievedChunk> createRetrievalTask(String question, String collectionName, int topK) {
+    protected List<RetrievedChunk> createRetrievalTask(String question, CollectionTarget target, int topK) {
         try {
             return retrieverService.retrieve(
                     RetrieveRequest.builder()
-                            .collectionName(collectionName)
+                            .collectionName(target.collectionName())
+                            .embeddingModel(target.embeddingModel())
                             .query(question)
                             .topK(topK)
                             .build()
             );
         } catch (Exception e) {
-            log.error("在 collection {} 中检索失败，错误: {}", collectionName, e.getMessage(), e);
+            log.error("Collection retrieval failed, collection={}, embeddingModel={}, error={}",
+                    target.collectionName(), target.embeddingModel(), e.getMessage(), e);
             return List.of();
         }
     }
 
     @Override
-    protected String getTargetIdentifier(String collectionName) {
-        return "Collection: " + collectionName;
+    protected String getTargetIdentifier(CollectionTarget target) {
+        return "Collection: " + target.collectionName();
     }
 
     @Override
     protected String getStatisticsName() {
-        return "全局检索";
+        return "global retrieval";
     }
 }

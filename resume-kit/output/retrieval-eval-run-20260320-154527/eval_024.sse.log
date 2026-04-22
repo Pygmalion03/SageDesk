@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_024-7d3cbc27","taskId":"2034900159330050049"}
+
+event:cancel
+data:{"messageId":"null","title":"排队和许可控制问题"}
+
+event:done
+data:[DONE]
+

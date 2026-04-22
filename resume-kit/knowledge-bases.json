@@ -1,0 +1,78 @@
+{
+  "knowledgeBases": [
+    {
+      "key": "engineering_rag",
+      "name": "Ragent Resume Engineering",
+      "collectionName": "resumeragengineering",
+      "embeddingModel": "qwen-emb-8b",
+      "documents": [
+        {
+          "key": "project_overview",
+          "docName": "01 Project Overview.md",
+          "path": "knowledge-docs/engineering-rag/01_project_overview.md",
+          "processMode": "chunk",
+          "chunkStrategy": "structure_aware",
+          "targetChars": 900,
+          "maxChars": 1200,
+          "minChars": 400,
+          "overlapChars": 120
+        },
+        {
+          "key": "retrieval_pipeline",
+          "docName": "02 Retrieval Pipeline.md",
+          "path": "knowledge-docs/engineering-rag/02_retrieval_pipeline.md",
+          "processMode": "chunk",
+          "chunkStrategy": "structure_aware",
+          "targetChars": 900,
+          "maxChars": 1200,
+          "minChars": 400,
+          "overlapChars": 120
+        },
+        {
+          "key": "queue_stability",
+          "docName": "03 Queue Stability.md",
+          "path": "knowledge-docs/engineering-rag/03_queue_and_stability.md",
+          "processMode": "chunk",
+          "chunkStrategy": "structure_aware",
+          "targetChars": 900,
+          "maxChars": 1200,
+          "minChars": 400,
+          "overlapChars": 120
+        },
+        {
+          "key": "trace_dashboard",
+          "docName": "04 Trace Dashboard.md",
+          "path": "knowledge-docs/engineering-rag/04_trace_dashboard.md",
+          "processMode": "chunk",
+          "chunkStrategy": "structure_aware",
+          "targetChars": 900,
+          "maxChars": 1200,
+          "minChars": 400,
+          "overlapChars": 120
+        },
+        {
+          "key": "ingestion_chunking",
+          "docName": "05 Ingestion Chunking.md",
+          "path": "knowledge-docs/engineering-rag/05_ingestion_and_chunking.md",
+          "processMode": "chunk",
+          "chunkStrategy": "structure_aware",
+          "targetChars": 900,
+          "maxChars": 1200,
+          "minChars": 400,
+          "overlapChars": 120
+        },
+        {
+          "key": "resume_highlights",
+          "docName": "06 Resume Highlights.md",
+          "path": "knowledge-docs/engineering-rag/06_resume_highlights.md",
+          "processMode": "chunk",
+          "chunkStrategy": "structure_aware",
+          "targetChars": 900,
+          "maxChars": 1200,
+          "minChars": 400,
+          "overlapChars": 120
+        }
+      ]
+    }
+  ]
+}

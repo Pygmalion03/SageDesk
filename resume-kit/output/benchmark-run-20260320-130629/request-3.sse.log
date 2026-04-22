@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-3-ccf0f9e8","taskId":"2034859312651751424"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034859312643362816","title":"双检索加重排序核心思想"}
+
+event:done
+data:[DONE]
+

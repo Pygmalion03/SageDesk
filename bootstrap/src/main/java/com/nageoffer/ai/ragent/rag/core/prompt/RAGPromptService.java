@@ -21,15 +21,26 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.nageoffer.ai.ragent.framework.convention.ChatMessage;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentNode;
 import com.nageoffer.ai.ragent.rag.core.intent.NodeScore;
+import com.nageoffer.ai.ragent.rag.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.InputStream;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.MCP_KB_MIXED_PROMPT_PATH;
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.MCP_ONLY_PROMPT_PATH;
@@ -37,21 +48,20 @@ import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.RAG_ENTERPRISE_PR
 
 /**
  * RAG Prompt 编排服务
- * <p>
- * 根据检索结果场景（KB / MCP / Mixed）选择模板，并构造最终发送给 LLM 的消息序列
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RAGPromptService {
 
     private static final String MCP_CONTEXT_HEADER = "## 动态数据片段";
     private static final String KB_CONTEXT_HEADER = "## 文档内容";
+    private static final String VISUAL_GUIDANCE_HEADER = "## 图片使用说明";
 
     private final PromptTemplateLoader promptTemplateLoader;
+    private final RAGDefaultProperties ragDefaultProperties;
+    private final FileStorageService fileStorageService;
 
-    /**
-     * 生成系统提示词，并对模板格式做清理
-     */
     public String buildSystemPrompt(PromptContext context) {
         PromptBuildPlan plan = plan(context);
         String template = StrUtil.isNotBlank(plan.getBaseTemplate())
@@ -60,9 +70,6 @@ public class RAGPromptService {
         return StrUtil.isBlank(template) ? "" : PromptTemplateUtils.cleanupPrompt(template);
     }
 
-    /**
-     * 构造发送给 LLM 的完整消息列表（system + evidence + history + user）
-     */
     public List<ChatMessage> buildStructuredMessages(PromptContext context,
                                                      List<ChatMessage> history,
                                                      String question,
@@ -75,32 +82,171 @@ public class RAGPromptService {
         if (StrUtil.isNotBlank(context.getMcpContext())) {
             messages.add(ChatMessage.system(formatEvidence(MCP_CONTEXT_HEADER, context.getMcpContext())));
         }
-        if (StrUtil.isNotBlank(context.getKbContext())) {
-            messages.add(ChatMessage.user(formatEvidence(KB_CONTEXT_HEADER, context.getKbContext())));
-        }
         if (CollUtil.isNotEmpty(history)) {
             messages.addAll(history);
         }
 
-        // 多子问题场景下，显式编号以降低模型漏答风险
-        if (CollUtil.isNotEmpty(subQuestions) && subQuestions.size() > 1) {
-            StringBuilder userMessage = new StringBuilder();
-            userMessage.append("请基于上述文档内容，回答以下问题：\n\n");
-            for (int i = 0; i < subQuestions.size(); i++) {
-                userMessage.append(i + 1).append(". ").append(subQuestions.get(i)).append("\n");
+        List<RetrievedChunk> visualChunks = context.visualChunks();
+        String userPrompt = buildUserPrompt(context, question, subQuestions, !visualChunks.isEmpty());
+        ChatMessage userMessage = buildUserMessage(userPrompt, visualChunks);
+        messages.add(userMessage);
+        return messages;
+    }
+
+    private ChatMessage buildUserMessage(String userPrompt, List<RetrievedChunk> visualChunks) {
+        List<ChatMessage.ContentPart> parts = new ArrayList<>();
+        parts.add(ChatMessage.ContentPart.text(userPrompt));
+
+        LinkedHashSet<String> imagePayloads = new LinkedHashSet<>();
+        int imageLimit = ragDefaultProperties.getVisualAnswerImageLimit() == null
+                ? 4
+                : Math.max(ragDefaultProperties.getVisualAnswerImageLimit(), 0);
+        for (RetrievedChunk visualChunk : visualChunks) {
+            if (imagePayloads.size() >= imageLimit) {
+                break;
             }
-            messages.add(ChatMessage.user(userMessage.toString().trim()));
-        } else if (StrUtil.isNotBlank(question)) {
-            messages.add(ChatMessage.user(question));
+            String imageUri = extractImageUri(visualChunk);
+            String payload = resolveImagePayload(imageUri);
+            if (StrUtil.isNotBlank(payload)) {
+                imagePayloads.add(payload);
+            }
         }
 
-        return messages;
+        if (imagePayloads.isEmpty()) {
+            return ChatMessage.user(userPrompt);
+        }
+
+        imagePayloads.forEach(image -> parts.add(ChatMessage.ContentPart.imageUrl(image)));
+        return ChatMessage.userParts(parts);
+    }
+
+    private String buildUserPrompt(PromptContext context,
+                                   String question,
+                                   List<String> subQuestions,
+                                   boolean hasVisualInputs) {
+        StringBuilder prompt = new StringBuilder();
+        if (StrUtil.isNotBlank(context.getKbContext())) {
+            prompt.append(formatEvidence(KB_CONTEXT_HEADER, context.getKbContext())).append("\n\n");
+        }
+        if (hasVisualInputs) {
+            prompt.append(VISUAL_GUIDANCE_HEADER).append("\n")
+                    .append("已附上召回图片。回答时请同时参考图片和文本证据；如果图片内容与 OCR/摘要冲突，以图片本身为准。")
+                    .append("\n\n");
+        }
+        prompt.append("## 用户问题\n");
+        if (CollUtil.isNotEmpty(subQuestions) && subQuestions.size() > 1) {
+            prompt.append("请逐项回答下面的问题：\n");
+            for (int i = 0; i < subQuestions.size(); i++) {
+                prompt.append(i + 1).append(". ").append(subQuestions.get(i)).append("\n");
+            }
+        } else {
+            prompt.append(StrUtil.blankToDefault(question, context.getQuestion()));
+        }
+        return prompt.toString().trim();
+    }
+
+    private String resolveImagePayload(String imageUri) {
+        if (StrUtil.isBlank(imageUri)) {
+            return null;
+        }
+        String trimmed = imageUri.trim();
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+            return trimmed;
+        }
+        try {
+            if (trimmed.startsWith("s3://")) {
+                byte[] bytes;
+                try (InputStream inputStream = fileStorageService.openStream(trimmed)) {
+                    bytes = inputStream.readAllBytes();
+                }
+                String mimeType = inferMimeType(trimmed);
+                if (StrUtil.isBlank(mimeType)) {
+                    mimeType = "application/octet-stream";
+                }
+                return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
+            }
+            Path path = trimmed.startsWith("file:/")
+                    ? Paths.get(URI.create(trimmed))
+                    : Paths.get(trimmed);
+            if (!Files.exists(path) || Files.isDirectory(path)) {
+                return null;
+            }
+            byte[] bytes = Files.readAllBytes(path);
+            String mimeType = Files.probeContentType(path);
+            if (StrUtil.isBlank(mimeType)) {
+                mimeType = inferMimeType(path);
+            }
+            if (StrUtil.isBlank(mimeType)) {
+                mimeType = "application/octet-stream";
+            }
+            return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception ex) {
+            log.debug("Resolve multimodal image payload failed, imageUri={}", trimmed, ex);
+            return null;
+        }
+    }
+
+    private String inferMimeType(String pathOrUri) {
+        if (StrUtil.isBlank(pathOrUri)) {
+            return null;
+        }
+        try {
+            return inferMimeType(Paths.get(pathOrUri));
+        } catch (Exception ignored) {
+            String lower = pathOrUri.toLowerCase();
+            if (lower.endsWith(".png")) {
+                return "image/png";
+            }
+            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                return "image/jpeg";
+            }
+            if (lower.endsWith(".webp")) {
+                return "image/webp";
+            }
+            if (lower.endsWith(".gif")) {
+                return "image/gif";
+            }
+            if (lower.endsWith(".bmp")) {
+                return "image/bmp";
+            }
+            return null;
+        }
+    }
+
+    private String inferMimeType(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return null;
+        }
+        String name = path.getFileName().toString().toLowerCase();
+        if (name.endsWith(".png")) {
+            return "image/png";
+        }
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (name.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (name.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (name.endsWith(".bmp")) {
+            return "image/bmp";
+        }
+        return null;
+    }
+
+    private String extractImageUri(RetrievedChunk visualChunk) {
+        if (visualChunk == null || visualChunk.getMetadata() == null) {
+            return null;
+        }
+        Object imageUri = visualChunk.getMetadata().get("image_uri");
+        return imageUri == null ? null : String.valueOf(imageUri);
     }
 
     private PromptPlan planPrompt(List<NodeScore> intents, Map<String, List<RetrievedChunk>> intentChunks) {
         List<NodeScore> safeIntents = intents == null ? Collections.emptyList() : intents;
 
-        // 1) 先剔除“未命中检索”的意图
         List<NodeScore> retained = safeIntents.stream()
                 .filter(ns -> {
                     IntentNode node = ns.getNode();
@@ -111,26 +257,17 @@ public class RAGPromptService {
                 .toList();
 
         if (retained.isEmpty()) {
-            // 没有任何可用意图：无基模板（上层可根据业务选择 fallback）
             return new PromptPlan(Collections.emptyList(), null);
         }
 
-        // 2) 单 / 多意图的模板与片段策略
         if (retained.size() == 1) {
             IntentNode only = retained.get(0).getNode();
             String tpl = StrUtil.emptyIfNull(only.getPromptTemplate()).trim();
-
-            if (StrUtil.isNotBlank(tpl)) {
-                // 单意图 + 有模板：使用模板本身
-                return new PromptPlan(retained, tpl);
-            } else {
-                // 单意图 + 无模板：走默认模板
-                return new PromptPlan(retained, null);
-            }
-        } else {
-            // 多意图：统一默认模板
-            return new PromptPlan(retained, null);
+            return StrUtil.isNotBlank(tpl)
+                    ? new PromptPlan(retained, tpl)
+                    : new PromptPlan(retained, null);
         }
+        return new PromptPlan(retained, null);
     }
 
     private PromptBuildPlan plan(PromptContext context) {
@@ -199,15 +336,13 @@ public class RAGPromptService {
         return header + "\n" + body.trim();
     }
 
-    // === 工具方法 ===
-
-    /**
-     * 从意图节点提取用于映射检索结果的 key
-     */
     private static String nodeKey(IntentNode node) {
-        if (node == null) return "";
-        if (StrUtil.isNotBlank(node.getId())) return node.getId();
+        if (node == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(node.getId())) {
+            return node.getId();
+        }
         return String.valueOf(node.getId());
     }
-
 }

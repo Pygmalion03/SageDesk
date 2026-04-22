@@ -1,0 +1,9 @@
+event:meta
+data:{"conversationId":"resume-eval-eval_060-a21e286e","taskId":"2034912895271231489"}
+
+event:cancel
+data:{"messageId":"null","title":"四步讲顺像真实落地项目"}
+
+event:done
+data:[DONE]
+

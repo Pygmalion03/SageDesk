@@ -1,0 +1,12 @@
+event:meta
+data:{"conversationId":"resume-bench-2-b8d19b9a","taskId":"2034852470831763456"}
+
+event:reject
+data:{"type":"response","delta":"系统繁忙，请稍后再试"}
+
+event:finish
+data:{"messageId":"2034852470819180544","title":"双检索加重排序管道的核心思想"}
+
+event:done
+data:[DONE]
+
