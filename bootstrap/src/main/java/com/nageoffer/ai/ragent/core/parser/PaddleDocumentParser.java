@@ -24,6 +24,8 @@ import com.nageoffer.ai.ragent.framework.exception.ServiceException;
 import com.nageoffer.ai.ragent.ingestion.domain.context.StructuredDocument;
 import com.nageoffer.ai.ragent.infra.http.HttpMediaTypes;
 import com.nageoffer.ai.ragent.rag.config.DocumentAnalysisProperties;
+import com.nageoffer.ai.ragent.rag.dto.StoredFileDTO;
+import com.nageoffer.ai.ragent.rag.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
@@ -35,6 +37,9 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
+import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -45,11 +50,15 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -64,6 +73,10 @@ public class PaddleDocumentParser implements DocumentParser {
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final DocumentAnalysisProperties properties;
+    private final FileStorageService fileStorageService;
+    private final S3Client s3Client;
+
+    private final Set<String> ensuredBuckets = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     @Override
     public String getParserType() {
@@ -236,11 +249,13 @@ public class PaddleDocumentParser implements DocumentParser {
 
             Map<String, String> markdownImages = collectRemoteImages(
                     pageNode.path("markdown").path("images"),
-                    runDir.resolve("page-" + pageNo).resolve("markdown")
+                    runDir.resolve("page-" + pageNo).resolve("markdown"),
+                    options
             );
             Map<String, String> outputImages = collectRemoteImages(
                     pageNode.path("outputImages"),
-                    runDir.resolve("page-" + pageNo).resolve("output")
+                    runDir.resolve("page-" + pageNo).resolve("output"),
+                    options
             );
 
             String imageUri = firstImageUri(outputImages);
@@ -343,7 +358,7 @@ public class PaddleDocumentParser implements DocumentParser {
         return runDir;
     }
 
-    private Map<String, String> collectRemoteImages(JsonNode imagesNode, Path targetDir) {
+    private Map<String, String> collectRemoteImages(JsonNode imagesNode, Path targetDir, Map<String, Object> options) {
         Map<String, String> images = new LinkedHashMap<>();
         if (imagesNode == null || !imagesNode.isObject()) {
             return images;
@@ -355,14 +370,14 @@ public class PaddleDocumentParser implements DocumentParser {
                 return;
             }
             String resolvedUri = properties.isDownloadRemoteImages()
-                    ? downloadRemoteImage(remoteUrl, targetDir, key)
+                    ? downloadRemoteImage(remoteUrl, targetDir, key, options)
                     : remoteUrl;
             images.put(key, resolvedUri);
         });
         return images;
     }
 
-    private String downloadRemoteImage(String remoteUrl, Path targetDir, String preferredName) {
+    private String downloadRemoteImage(String remoteUrl, Path targetDir, String preferredName, Map<String, Object> options) {
         try {
             Files.createDirectories(targetDir);
         } catch (IOException e) {
@@ -379,17 +394,75 @@ public class PaddleDocumentParser implements DocumentParser {
                 return remoteUrl;
             }
             String fileName = sanitizeFileName(preferredName);
-            String extension = resolveExtension(remoteUrl, response.header("Content-Type"));
+            String contentType = response.header("Content-Type");
+            String extension = resolveExtension(remoteUrl, contentType);
             if (!fileName.endsWith(extension)) {
                 fileName = fileName + extension;
             }
             Path filePath = targetDir.resolve(fileName);
-            Files.write(filePath, body.bytes());
-            return filePath.toAbsolutePath().toString();
+            byte[] imageBytes = body.bytes();
+            Files.write(filePath, imageBytes);
+            String storedUri = uploadImageToStorage(imageBytes, fileName, contentType, options);
+            return StringUtils.hasText(storedUri) ? storedUri : filePath.toAbsolutePath().toString();
         } catch (Exception e) {
             log.warn("Download Paddle image failed, remoteUrl={}, reason={}", remoteUrl, e.getMessage());
             return remoteUrl;
         }
+    }
+
+    private String uploadImageToStorage(byte[] imageBytes,
+                                        String fileName,
+                                        String contentType,
+                                        Map<String, Object> options) {
+        String bucketName = normalizeBucketName(resolveOption(options, "storageBucket", null));
+        if (!StringUtils.hasText(bucketName) || imageBytes == null || imageBytes.length == 0) {
+            return null;
+        }
+        ensureBucketExists(bucketName);
+        StoredFileDTO storedFile = fileStorageService.upload(bucketName, imageBytes, fileName, contentType);
+        return storedFile == null ? null : storedFile.getUrl();
+    }
+
+    private void ensureBucketExists(String bucketName) {
+        if (!StringUtils.hasText(bucketName) || ensuredBuckets.contains(bucketName)) {
+            return;
+        }
+        synchronized (ensuredBuckets) {
+            if (ensuredBuckets.contains(bucketName)) {
+                return;
+            }
+            try {
+                s3Client.createBucket(builder -> builder.bucket(bucketName));
+                log.info("Created Paddle media bucket: {}", bucketName);
+            } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException ignored) {
+                log.debug("Paddle media bucket already exists: {}", bucketName);
+            }
+            ensuredBuckets.add(bucketName);
+        }
+    }
+
+    private String normalizeBucketName(String rawBucketName) {
+        if (!StringUtils.hasText(rawBucketName)) {
+            return null;
+        }
+        String normalized = rawBucketName.trim().toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9.-]", "-")
+                .replaceAll("^[^a-z0-9]+", "")
+                .replaceAll("[^a-z0-9]+$", "")
+                .replaceAll("-{2,}", "-");
+        if (!StringUtils.hasText(normalized)) {
+            normalized = "rag-visual-media";
+        }
+        if (normalized.length() < 3) {
+            normalized = (normalized + "-media");
+        }
+        if (normalized.length() > 63) {
+            normalized = normalized.substring(0, 63).replaceAll("[^a-z0-9]+$", "");
+        }
+        if (normalized.length() < 3) {
+            return "rag-visual-media";
+        }
+        return normalized;
     }
 
     private StructuredDocument parseBridgeDocument(JsonNode root) {

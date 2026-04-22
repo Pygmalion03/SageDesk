@@ -62,6 +62,14 @@ public class ModelSelector {
         return selectCandidates(properties.getEmbedding());
     }
 
+    public boolean supportsEmbeddingModel(String modelId) {
+        if (StrUtil.isBlank(modelId)) {
+            return true;
+        }
+        return selectEmbeddingCandidates().stream()
+                .anyMatch(target -> modelId.equals(target.id()));
+    }
+
     public List<ModelTarget> selectRerankCandidates() {
         return selectCandidates(properties.getRerank());
     }

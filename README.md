@@ -1,4 +1,4 @@
-﻿# SageDesk - 企业知识助手
+# SageDesk
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Java](https://img.shields.io/badge/Java-17-ff7f2a.svg)
@@ -6,48 +6,170 @@
 ![Milvus](https://img.shields.io/badge/Milvus-2.6.x-00b3ff.svg)
 ![React](https://img.shields.io/badge/React-18-61dafb.svg)
 
-> 面向企业制度、流程文档和业务知识查询场景的智能检索与问答系统。
+SageDesk is an enterprise knowledge assistant built around RAG, multimodal document understanding, streaming chat, model routing, and operationally safe document ingestion.
 
-## 项目简介
+It is designed for scenarios where knowledge is scattered across policies, product manuals, PDFs, scanned pages, screenshots, charts, and long-running conversations.
 
-SageDesk 是一个企业级知识助手，围绕文档解析、向量检索、意图识别、问题重写、会话记忆和模型路由等核心能力，提供完整的知识问答体验。项目定位偏工程落地，重点解决传统关键词检索命中率低、复杂问题难召回、长会话成本高以及多模型稳定性不足等问题。
+## Highlights
 
-## 核心能力
+- **Multimodal RAG**: parses PDF/image documents into text blocks and visual blocks, then supports text retrieval, visual retrieval, image-grounded answers, and image preview in chat results.
+- **Async ingestion pipeline**: processes documents through `fetcher -> parser -> chunker -> indexer` with task status tracking, staged uploads, restart recovery, and distributed recovery locking.
+- **Hybrid retrieval architecture**: combines intent-directed retrieval, vector global search, visual global search, rerank, and context formatting before generation.
+- **Model routing**: supports multiple chat, embedding, and rerank providers with priority-based selection, fallback, circuit breaking, and multimodal model constraints.
+- **Streaming UX**: returns chat responses over SSE and appends source evidence, including related images when visual chunks are retrieved.
+- **Traceability**: records retrieval and generation traces so query rewrite, channel recall, rerank, and final context can be inspected.
 
-- 双路检索：融合意图定向检索与全局向量检索，兼顾召回率和答案相关性。
-- 问题重写：结合上下文补全和术语归一化，提升口语化问题的命中效果。
-- 分布式排队限流：基于 Redis、Lua、ZSET 和 Pub/Sub 控制模型调用并发，支持 SSE 实时反馈。
-- 多模型容错：支持模型路由、三态熔断、优先级降级和首包探测，提升系统可用性。
-- 会话记忆压缩：通过滑动窗口和摘要机制控制 Token 成本，支撑多轮连续问答。
-- 文档入库流水线：支持多格式文档解析、分块、增强、向量化与索引写入。
+## Architecture
 
-## 技术架构
+```mermaid
+flowchart LR
+    U["User / Admin UI"] --> API["Spring Boot API"]
 
-- 后端：Java 17、Spring Boot 3、MyBatis Plus、Sa-Token
-- 前端：React 18、Vite、TypeScript、Tailwind CSS
-- 存储：MySQL、Redis、Milvus
-- 文档处理：Apache Tika
-- 并发与异步：CompletableFuture、专用线程池、TTL 上下文透传
+    API -->|Upload document| TASK["IngestionTaskService"]
+    TASK --> QUEUE["Background executor"]
+    QUEUE --> PIPE["IngestionEngine"]
 
-## 项目结构
+    subgraph INGEST["Ingestion"]
+        PIPE --> FETCH["Fetcher"]
+        FETCH --> PARSER["ParserNode"]
+        PARSER -->|PDF / Image| PADDLE["PaddleDocumentParser"]
+        PARSER -->|Other files / fallback| TIKA["Tika Parser"]
+        PADDLE --> DOC["StructuredDocument"]
+        TIKA --> DOC
+        DOC --> CHUNK["ChunkerNode"]
+        CHUNK --> TEXT["Text chunks"]
+        CHUNK --> VISUAL["Visual chunks"]
+        TEXT --> TEXT_EMB["Text embedding"]
+        VISUAL --> VISUAL_EMB["Visual embedding"]
+        TEXT_EMB --> TEXT_INDEX["Milvus text collection"]
+        VISUAL_EMB --> IMAGE_INDEX["Milvus image collection"]
+    end
 
-```text
-bootstrap/      Spring Boot 启动模块与核心业务
-framework/      通用基础设施与框架能力
-infra-ai/       模型与 AI 基础能力封装
-frontend/       React 管理后台与用户界面
+    API -->|Ask question| CHAT["RAGChatService"]
+
+    subgraph RETRIEVAL["Retrieval"]
+        CHAT --> REWRITE["Query rewrite"]
+        REWRITE --> INTENT["Intent resolver"]
+        INTENT --> ENGINE["MultiChannelRetrievalEngine"]
+        ENGINE --> VECTOR["VectorGlobalSearchChannel"]
+        ENGINE --> IMAGE["VisualGlobalSearchChannel"]
+        VECTOR --> TEXT_INDEX
+        IMAGE --> IMAGE_INDEX
+        VECTOR --> MERGE["Merge candidates"]
+        IMAGE --> MERGE
+        MERGE --> RERANK["RerankPostProcessor"]
+    end
+
+    subgraph GENERATION["Generation and Delivery"]
+        RERANK --> PROMPT["RAGPromptService"]
+        PROMPT --> MODEL["LLM / VLM"]
+        MODEL --> SSE["SSE response"]
+        RERANK --> APPENDIX["VisualAnswerAppendixService"]
+        APPENDIX --> MEDIA["MediaPreviewController"]
+        MEDIA --> SSE
+    end
+
+    SSE --> U
 ```
 
-## 本地运行
+## Core Flow
 
-### 后端
+### Document ingestion
+
+1. A document upload creates an ingestion task and returns quickly.
+2. The background executor runs the configured pipeline.
+3. `ParserNode` selects a parser by file type and pipeline rule.
+4. PDF and image inputs can use Paddle document analysis; other inputs can use Tika or fallback parsing.
+5. `ChunkerNode` produces both normal text chunks and visual chunks.
+6. Text chunks and visual chunks are embedded separately.
+7. `IndexerNode` writes text chunks to the text collection and visual chunks to the image collection.
+
+### Retrieval and answer generation
+
+1. `RAGChatService` loads conversation memory and rewrites the user query.
+2. `IntentResolver` determines whether the query should use system, knowledge-base, MCP, or fallback retrieval.
+3. `MultiChannelRetrievalEngine` runs enabled channels in parallel.
+4. `VectorGlobalSearchChannel` searches compatible text collections.
+5. `VisualGlobalSearchChannel` searches image collections named with the configured image suffix.
+6. `RerankPostProcessor` switches to the visual rerank model when visual chunks are present.
+7. `RAGPromptService` builds structured chat messages. When image evidence exists, image payloads are attached as multimodal message parts.
+8. The answer streams back to the frontend, and related images are appended through the media preview endpoint.
+
+## Feature Set
+
+- Knowledge base creation and document management
+- PDF, text, and image-oriented document ingestion
+- Structure-aware chunking
+- Text and visual vector indexing
+- Global vector search and visual global search
+- Rerank-based evidence refinement
+- Conversation memory and summary compression
+- Query rewrite and multi-question splitting
+- MCP tool invocation integration
+- SSE streaming chat
+- Model provider routing and fallback
+- Retrieval trace and dashboard-oriented observability
+- Media preview for retrieved image evidence
+
+## Tech Stack
+
+- **Backend**: Java 17, Spring Boot 3, MyBatis-Plus, Sa-Token
+- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS
+- **Storage**: MySQL, Redis, Milvus, S3-compatible object storage
+- **Document processing**: Apache Tika, Paddle document analysis
+- **AI providers**: configurable chat, embedding, rerank, and multimodal model providers
+- **Concurrency**: dedicated executors, `CompletableFuture`, Redis/Redisson coordination
+
+## Project Structure
+
+```text
+bootstrap/      Spring Boot application, controllers, RAG, ingestion, knowledge services
+framework/      Shared conventions, context, tracing, and common infrastructure
+infra-ai/       Chat, embedding, rerank, provider routing, and model selection
+frontend/       React admin console and chat UI
+resources/      Docker and local infrastructure resources
+docs/           Development notes and examples
+```
+
+## Configuration
+
+Runtime secrets should be provided through environment variables. Do not commit real provider keys.
+
+```powershell
+$env:BAILIAN_API_KEY="your-bailian-api-key"
+$env:SILICONFLOW_API_KEY="your-siliconflow-api-key"
+$env:PADDLE_API_KEY="your-paddle-api-key"
+```
+
+Common local overrides:
+
+```powershell
+$env:PADDLE_PROVIDER="official"
+$env:PADDLE_REQUEST_MODE="async"
+$env:PADDLE_RESULT_DOWNLOAD_DIR="scripts/paddle_api_runtime"
+```
+
+The default backend context path is:
+
+```text
+/api/ragent
+```
+
+The frontend can keep using:
+
+```env
+VITE_API_BASE_URL=/api/ragent
+```
+
+## Local Development
+
+Start the backend:
 
 ```bash
-mvn clean install
 mvn -pl bootstrap spring-boot:run
 ```
 
-### 前端
+Start the frontend:
 
 ```bash
 cd frontend
@@ -55,40 +177,25 @@ npm install
 npm run dev
 ```
 
-默认前端开发地址：`http://localhost:5173`
+Run backend compile checks:
 
-## 配置说明
-
-前端品牌配置位于 `frontend/.env`：
-
-```env
-VITE_APP_NAME=SageDesk 企业知识助手
-VITE_APP_SHORT_NAME=SageDesk
-VITE_APP_TAGLINE=Knowledge Assistant
-VITE_APP_REPO_URL=
-VITE_APP_DOCS_URL=
-VITE_APP_COMMUNITY_URL=
+```bash
+mvn -q -pl bootstrap -am test-compile -DskipTests
 ```
 
-说明：
-- `VITE_API_BASE_URL` 仍保持 `/api/ragent`，这是当前后端上下文路径，未做破坏性调整。
-- 如需展示仓库、文档或项目主页，可直接补充对应链接。
+Run selected tests:
 
-后端 AI Provider Key 建议通过环境变量注入：
-
-```powershell
-$env:BAILIAN_API_KEY="your-bailian-key"
-$env:SILICONFLOW_API_KEY="your-siliconflow-key"
+```bash
+mvn -q -pl bootstrap -am test
 ```
 
-`bootstrap/src/main/resources/application.yaml` 已改为从 `BAILIAN_API_KEY` 和 `SILICONFLOW_API_KEY` 读取，避免将密钥提交到仓库。
+## Notes
 
-## 简历表达建议
+- The repository uses environment variables for AI provider keys.
+- Local infrastructure addresses and development credentials are intended for local profiles only and should be replaced in deployed environments.
+- Multimodal retrieval uses separate text and image vector spaces because embedding dimensions, metadata, and retrieval strategies differ.
+- Visual search retrieves visual chunks first; image-grounded reasoning happens when retrieved image evidence is attached to the multimodal chat request.
 
-项目名称：`SageDesk - 企业知识助手`
+## License
 
-项目简介：面向企业制度、流程文档和业务知识查询场景，设计并实现智能检索与问答系统，解决传统关键词检索命中率低、复杂问题难召回、长会话成本高及多模型稳定性不足的问题。
-
-## 说明
-
-这次换皮主要覆盖前端展示层、文案和仓库说明，后端接口路径、Java 包名和数据库命名保持原状，以降低改动风险并保证项目仍可直接运行。
+Apache License 2.0.

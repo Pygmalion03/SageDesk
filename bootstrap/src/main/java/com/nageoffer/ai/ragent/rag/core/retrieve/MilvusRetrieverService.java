@@ -18,6 +18,8 @@
 package com.nageoffer.ai.ragent.rag.core.retrieve;
 
 import cn.hutool.core.util.StrUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
 import com.nageoffer.ai.ragent.infra.embedding.EmbeddingService;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
@@ -42,9 +44,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MilvusRetrieverService implements RetrieverService {
 
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
+    };
+
     private final EmbeddingService embeddingService;
     private final MilvusClientV2 milvusClient;
     private final RAGDefaultProperties ragDefaultProperties;
+    private final ObjectMapper objectMapper;
 
     @Override
     public List<RetrievedChunk> retrieve(RetrieveRequest retrieveParam) {
@@ -101,6 +107,18 @@ public class MilvusRetrieverService implements RetrieverService {
                 }
             });
             return metadata;
+        }
+        if (rawMetadata instanceof CharSequence text && StrUtil.isNotBlank(text.toString())) {
+            try {
+                return objectMapper.readValue(text.toString(), MAP_TYPE);
+            } catch (Exception ignored) {
+                // fallback to toString parsing below
+            }
+        }
+        try {
+            return objectMapper.readValue(String.valueOf(rawMetadata), MAP_TYPE);
+        } catch (Exception ignored) {
+            // ignore
         }
         return new HashMap<>();
     }

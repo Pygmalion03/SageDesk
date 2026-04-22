@@ -20,6 +20,7 @@ package com.nageoffer.ai.ragent.rag.core.retrieve.channel;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
+import com.nageoffer.ai.ragent.infra.model.ModelSelector;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
@@ -50,6 +51,7 @@ public class VectorGlobalSearchChannel implements SearchChannel {
     private final RAGDefaultProperties ragDefaultProperties;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final VectorStoreAdmin vectorStoreAdmin;
+    private final ModelSelector modelSelector;
     private final CollectionParallelRetriever parallelRetriever;
 
     public VectorGlobalSearchChannel(RetrieverService retrieverService,
@@ -57,11 +59,13 @@ public class VectorGlobalSearchChannel implements SearchChannel {
                                      RAGDefaultProperties ragDefaultProperties,
                                      KnowledgeBaseMapper knowledgeBaseMapper,
                                      VectorStoreAdmin vectorStoreAdmin,
+                                     ModelSelector modelSelector,
                                      @Qualifier("ragInnerRetrievalThreadPoolExecutor") Executor innerRetrievalExecutor) {
         this.properties = properties;
         this.ragDefaultProperties = ragDefaultProperties;
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.vectorStoreAdmin = vectorStoreAdmin;
+        this.modelSelector = modelSelector;
         this.parallelRetriever = new CollectionParallelRetriever(retrieverService, innerRetrievalExecutor);
     }
 
@@ -154,16 +158,24 @@ public class VectorGlobalSearchChannel implements SearchChannel {
     }
 
     private List<CollectionParallelRetriever.CollectionTarget> getAllKBCollections() {
-        Map<String, CollectionParallelRetriever.CollectionTarget> targets = new LinkedHashMap<>();
-
         List<KnowledgeBaseDO> kbList = knowledgeBaseMapper.selectList(
                 Wrappers.lambdaQuery(KnowledgeBaseDO.class)
                         .select(KnowledgeBaseDO::getCollectionName, KnowledgeBaseDO::getEmbeddingModel)
                         .eq(KnowledgeBaseDO::getDeleted, 0)
         );
+        return buildCollectionTargets(kbList);
+    }
+
+    private List<CollectionParallelRetriever.CollectionTarget> buildCollectionTargets(List<KnowledgeBaseDO> kbList) {
+        Map<String, CollectionParallelRetriever.CollectionTarget> targets = new LinkedHashMap<>();
         for (KnowledgeBaseDO kb : kbList) {
             String collectionName = kb.getCollectionName();
             if (collectionName == null || collectionName.isBlank()) {
+                continue;
+            }
+            if (!modelSelector.supportsEmbeddingModel(kb.getEmbeddingModel())) {
+                log.debug("Skip vector global search collection due to unavailable embedding model, collection={}, embeddingModel={}",
+                        collectionName, kb.getEmbeddingModel());
                 continue;
             }
             targets.putIfAbsent(

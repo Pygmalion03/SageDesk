@@ -40,6 +40,8 @@ scripts/logs/
 scripts/paddle_bridge_runtime/
 scripts/paddle_api_runtime/
 scripts/ingestion_task_runtime/
+diff.txt
+java_files.txt
 
 ### Frontend ###
 node_modules/

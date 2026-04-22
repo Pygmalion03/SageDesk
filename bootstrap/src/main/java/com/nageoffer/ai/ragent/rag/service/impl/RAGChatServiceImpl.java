@@ -45,6 +45,7 @@ import com.nageoffer.ai.ragent.rag.dto.SubQuestionIntent;
 import com.nageoffer.ai.ragent.rag.service.RAGChatService;
 import com.nageoffer.ai.ragent.rag.service.handler.StreamCallbackFactory;
 import com.nageoffer.ai.ragent.rag.service.handler.StreamTaskManager;
+import com.nageoffer.ai.ragent.rag.service.support.VisualAnswerAppendixService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -82,6 +83,7 @@ public class RAGChatServiceImpl implements RAGChatService {
     private final IntentResolver intentResolver;
     private final RetrievalEngine retrievalEngine;
     private final RAGDefaultProperties ragDefaultProperties;
+    private final VisualAnswerAppendixService visualAnswerAppendixService;
 
     @Override
     @ChatRateLimit
@@ -139,7 +141,7 @@ public class RAGChatServiceImpl implements RAGChatService {
                 mergedGroup,
                 history,
                 thinkingEnabled,
-                callback
+                wrapWithVisualAppendix(callback, ctx)
         );
         taskManager.bindHandle(taskId, handle);
     }
@@ -215,5 +217,41 @@ public class RAGChatServiceImpl implements RAGChatService {
             return null;
         }
         return ragDefaultProperties.getVisualAnswerModel();
+    }
+
+    private StreamCallback wrapWithVisualAppendix(StreamCallback delegate, RetrievalContext ctx) {
+        String appendix = visualAnswerAppendixService.buildMarkdown(ctx == null ? null : ctx.getIntentChunks());
+        if (StrUtil.isBlank(appendix)) {
+            return delegate;
+        }
+        return new StreamCallback() {
+
+            private boolean completed;
+
+            @Override
+            public void onContent(String content) {
+                delegate.onContent(content);
+            }
+
+            @Override
+            public void onThinking(String content) {
+                delegate.onThinking(content);
+            }
+
+            @Override
+            public void onComplete() {
+                if (completed) {
+                    return;
+                }
+                completed = true;
+                delegate.onContent(appendix);
+                delegate.onComplete();
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                delegate.onError(error);
+            }
+        };
     }
 }

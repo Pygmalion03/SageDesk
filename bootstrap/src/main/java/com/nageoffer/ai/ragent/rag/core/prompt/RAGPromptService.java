@@ -24,10 +24,12 @@ import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.intent.IntentNode;
 import com.nageoffer.ai.ragent.rag.core.intent.NodeScore;
+import com.nageoffer.ai.ragent.rag.service.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,6 +60,7 @@ public class RAGPromptService {
 
     private final PromptTemplateLoader promptTemplateLoader;
     private final RAGDefaultProperties ragDefaultProperties;
+    private final FileStorageService fileStorageService;
 
     public String buildSystemPrompt(PromptContext context) {
         PromptBuildPlan plan = plan(context);
@@ -151,6 +154,17 @@ public class RAGPromptService {
             return trimmed;
         }
         try {
+            if (trimmed.startsWith("s3://")) {
+                byte[] bytes;
+                try (InputStream inputStream = fileStorageService.openStream(trimmed)) {
+                    bytes = inputStream.readAllBytes();
+                }
+                String mimeType = inferMimeType(trimmed);
+                if (StrUtil.isBlank(mimeType)) {
+                    mimeType = "application/octet-stream";
+                }
+                return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
+            }
             Path path = trimmed.startsWith("file:/")
                     ? Paths.get(URI.create(trimmed))
                     : Paths.get(trimmed);
@@ -168,6 +182,33 @@ public class RAGPromptService {
             return "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(bytes);
         } catch (Exception ex) {
             log.debug("Resolve multimodal image payload failed, imageUri={}", trimmed, ex);
+            return null;
+        }
+    }
+
+    private String inferMimeType(String pathOrUri) {
+        if (StrUtil.isBlank(pathOrUri)) {
+            return null;
+        }
+        try {
+            return inferMimeType(Paths.get(pathOrUri));
+        } catch (Exception ignored) {
+            String lower = pathOrUri.toLowerCase();
+            if (lower.endsWith(".png")) {
+                return "image/png";
+            }
+            if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                return "image/jpeg";
+            }
+            if (lower.endsWith(".webp")) {
+                return "image/webp";
+            }
+            if (lower.endsWith(".gif")) {
+                return "image/gif";
+            }
+            if (lower.endsWith(".bmp")) {
+                return "image/bmp";
+            }
             return null;
         }
     }

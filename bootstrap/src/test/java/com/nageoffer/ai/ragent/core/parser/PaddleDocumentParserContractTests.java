@@ -20,12 +20,14 @@ package com.nageoffer.ai.ragent.core.parser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.rag.config.DocumentAnalysisProperties;
+import com.nageoffer.ai.ragent.rag.service.FileStorageService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -34,6 +36,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static org.mockito.Mockito.mock;
 
 class PaddleDocumentParserContractTests {
 
@@ -88,7 +92,13 @@ class PaddleDocumentParserContractTests {
         properties.setDefaultMode("pp_structure_v3");
         properties.setFallbackMode("paddleocr_vl_1_5");
 
-        PaddleDocumentParser parser = new PaddleDocumentParser(new OkHttpClient(), objectMapper, properties);
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
         byte[] content = "fake-pdf-binary".getBytes(StandardCharsets.UTF_8);
 
         ParseResult result = parser.parse(content, "application/pdf", Map.of("pageLimit", 3));
@@ -115,7 +125,13 @@ class PaddleDocumentParserContractTests {
     void shouldSupportPdfAndImageMimeTypes() {
         DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
         properties.setEnabled(true);
-        PaddleDocumentParser parser = new PaddleDocumentParser(new OkHttpClient(), objectMapper, properties);
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
 
         Assertions.assertTrue(parser.supports("application/pdf"));
         Assertions.assertTrue(parser.supports("image/png"));

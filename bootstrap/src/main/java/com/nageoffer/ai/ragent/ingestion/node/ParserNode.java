@@ -32,6 +32,7 @@ import com.nageoffer.ai.ragent.ingestion.domain.result.NodeResult;
 import com.nageoffer.ai.ragent.ingestion.domain.settings.ParserSettings;
 import com.nageoffer.ai.ragent.ingestion.util.MimeTypeDetector;
 import com.nageoffer.ai.ragent.rag.config.DocumentAnalysisProperties;
+import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -46,13 +47,16 @@ public class ParserNode implements IngestionNode {
     private final ObjectMapper objectMapper;
     private final DocumentParserSelector parserSelector;
     private final DocumentAnalysisProperties documentAnalysisProperties;
+    private final RAGDefaultProperties ragDefaultProperties;
 
     public ParserNode(ObjectMapper objectMapper,
                       DocumentParserSelector parserSelector,
-                      DocumentAnalysisProperties documentAnalysisProperties) {
+                      DocumentAnalysisProperties documentAnalysisProperties,
+                      RAGDefaultProperties ragDefaultProperties) {
         this.objectMapper = objectMapper;
         this.parserSelector = parserSelector;
         this.documentAnalysisProperties = documentAnalysisProperties;
+        this.ragDefaultProperties = ragDefaultProperties;
     }
 
     @Override
@@ -93,6 +97,12 @@ public class ParserNode implements IngestionNode {
         }
         if (context.getSource() != null && StringUtils.hasText(context.getSource().getLocation())) {
             options.putIfAbsent("sourceLocation", context.getSource().getLocation());
+        }
+        String storageBucket = context.getVectorSpaceId() != null
+                ? context.getVectorSpaceId().getLogicalName()
+                : ragDefaultProperties.getCollectionName();
+        if (StringUtils.hasText(storageBucket)) {
+            options.putIfAbsent("storageBucket", storageBucket);
         }
         ParseResult result;
         try {
