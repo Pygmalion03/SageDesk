@@ -24,10 +24,15 @@ import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
+import com.nageoffer.ai.ragent.rag.core.intent.IntentNode;
+import com.nageoffer.ai.ragent.rag.core.intent.NodeScore;
 import com.nageoffer.ai.ragent.rag.core.retrieve.RetrieverService;
+import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchContext;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.VectorGlobalSearchChannel;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.strategy.CollectionParallelRetriever;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
+import com.nageoffer.ai.ragent.rag.dto.SubQuestionIntent;
+import com.nageoffer.ai.ragent.rag.enums.IntentKind;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -39,6 +44,44 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class VectorGlobalSearchChannelTests {
+
+    @Test
+    void shouldSupplementHighConfidenceKbIntentByDefault() {
+        VectorGlobalSearchChannel channel = buildChannel(new SearchChannelProperties());
+
+        SearchContext context = SearchContext.builder()
+                .intents(List.of(new SubQuestionIntent("Ragent AI advantage", List.of(NodeScore.builder()
+                        .score(0.92D)
+                        .node(IntentNode.builder()
+                                .id("rag-overview")
+                                .kind(IntentKind.KB)
+                                .collectionName("kb_rag")
+                                .build())
+                        .build()))))
+                .topK(10)
+                .build();
+
+        Assertions.assertTrue(channel.isEnabled(context));
+    }
+
+    @Test
+    void shouldNotSupplementHighConfidenceMcpIntent() {
+        VectorGlobalSearchChannel channel = buildChannel(new SearchChannelProperties());
+
+        SearchContext context = SearchContext.builder()
+                .intents(List.of(new SubQuestionIntent("query ticket", List.of(NodeScore.builder()
+                        .score(0.92D)
+                        .node(IntentNode.builder()
+                                .id("ticket")
+                                .kind(IntentKind.MCP)
+                                .mcpToolId("ticket.query")
+                                .build())
+                        .build()))))
+                .topK(10)
+                .build();
+
+        Assertions.assertFalse(channel.isEnabled(context));
+    }
 
     @Test
     @SuppressWarnings("unchecked")
@@ -88,5 +131,32 @@ class VectorGlobalSearchChannelTests {
         Assertions.assertEquals(1, targets.size());
         Assertions.assertEquals("supported-kb", targets.get(0).collectionName());
         Assertions.assertEquals("qwen3-vl-embedding-1024", targets.get(0).embeddingModel());
+    }
+
+    private VectorGlobalSearchChannel buildChannel(SearchChannelProperties searchChannelProperties) {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        when(vectorStoreAdmin.vectorSpaceExists(any())).thenReturn(false);
+
+        AIModelProperties properties = new AIModelProperties();
+        AIModelProperties.ModelCandidate candidate = new AIModelProperties.ModelCandidate();
+        candidate.setId("qwen3-vl-embedding-1024");
+        candidate.setProvider("bailian");
+        properties.getEmbedding().setDefaultModel("qwen3-vl-embedding-1024");
+        properties.getEmbedding().setCandidates(List.of(candidate));
+        AIModelProperties.ProviderConfig providerConfig = new AIModelProperties.ProviderConfig();
+        providerConfig.setUrl("https://example.com");
+        properties.getProviders().put("bailian", providerConfig);
+        ModelSelector modelSelector = new ModelSelector(properties, new ModelHealthStore(properties));
+
+        return new VectorGlobalSearchChannel(
+                mock(RetrieverService.class),
+                searchChannelProperties,
+                new RAGDefaultProperties(),
+                knowledgeBaseMapper,
+                vectorStoreAdmin,
+                modelSelector,
+                Runnable::run
+        );
     }
 }

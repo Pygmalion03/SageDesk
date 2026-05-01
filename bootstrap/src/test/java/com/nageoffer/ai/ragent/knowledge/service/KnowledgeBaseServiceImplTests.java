@@ -19,6 +19,7 @@ package com.nageoffer.ai.ragent.knowledge.service;
 
 import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.context.LoginUser;
+import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.infra.model.EmbeddingModelDimensionResolver;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBaseCreateRequest;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
@@ -31,10 +32,16 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+
+import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class KnowledgeBaseServiceImplTests {
@@ -79,6 +86,79 @@ class KnowledgeBaseServiceImplTests {
         verify(vectorStoreAdmin).ensureVectorSpace(captor.capture());
         Assertions.assertEquals(1024, captor.getValue().getDimension());
         Assertions.assertEquals("yuedu1024", captor.getValue().getSpaceId().getLogicalName());
+        UserContext.clear();
+    }
+
+    @Test
+    void shouldRejectInvalidCollectionNameBeforeCreatingExternalResources() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        S3Client s3Client = mock(S3Client.class);
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+
+        KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
+                knowledgeBaseMapper,
+                knowledgeDocumentMapper,
+                vectorStoreAdmin,
+                s3Client,
+                dimensionResolver
+        );
+
+        KnowledgeBaseCreateRequest request = new KnowledgeBaseCreateRequest();
+        request.setName("bad collection");
+        request.setCollectionName("bad_collection");
+        request.setEmbeddingModel("qwen3-vl-embedding-1024");
+
+        ClientException exception = Assertions.assertThrows(ClientException.class, () -> service.create(request));
+
+        Assertions.assertTrue(exception.getErrorMessage().contains("Collection 名称只能使用"));
+        verify(knowledgeBaseMapper, never()).insert(any(KnowledgeBaseDO.class));
+        verifyNoInteractions(s3Client, vectorStoreAdmin, dimensionResolver);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldConvertS3BucketConflictToClientMessage() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        S3Client s3Client = mock(S3Client.class);
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+        when(knowledgeBaseMapper.selectCount(any())).thenReturn(0L);
+        when(knowledgeBaseMapper.insert(any(KnowledgeBaseDO.class))).thenAnswer(invocation -> {
+            KnowledgeBaseDO kb = invocation.getArgument(0);
+            kb.setId(1002L);
+            return 1;
+        });
+        doThrow(S3Exception.builder()
+                .message("BucketAlreadyOwnedByYou")
+                .statusCode(409)
+                .build())
+                .when(s3Client).createBucket(any(Consumer.class));
+        UserContext.set(LoginUser.builder()
+                .userId("1")
+                .username("admin")
+                .role("admin")
+                .build());
+
+        KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
+                knowledgeBaseMapper,
+                knowledgeDocumentMapper,
+                vectorStoreAdmin,
+                s3Client,
+                dimensionResolver
+        );
+
+        KnowledgeBaseCreateRequest request = new KnowledgeBaseCreateRequest();
+        request.setName("YUEDU");
+        request.setCollectionName("yuedu1024");
+        request.setEmbeddingModel("qwen3-vl-embedding-1024");
+
+        ClientException exception = Assertions.assertThrows(ClientException.class, () -> service.create(request));
+
+        Assertions.assertTrue(exception.getErrorMessage().contains("存储桶已存在"));
+        verify(vectorStoreAdmin, never()).ensureVectorSpace(any());
         UserContext.clear();
     }
 }

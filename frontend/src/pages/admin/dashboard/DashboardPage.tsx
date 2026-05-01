@@ -273,8 +273,9 @@ const useDashboardData = () => {
       console.error(err);
       setError("数据加载失败");
     } finally {
-      if (requestIdRef.current !== requestId) return;
-      setLoading(false);
+      if (requestIdRef.current === requestId) {
+        setLoading(false);
+      }
     }
   }, []);
 

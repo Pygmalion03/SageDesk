@@ -24,17 +24,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class VisualAnswerAppendixService {
 
+    private static final Pattern IMAGE_REFERENCE_PATTERN = Pattern.compile("(?is)(<img\\b[^>]*>|!\\[[^]]*]\\([^)]*\\))");
+
     private final MediaPreviewService mediaPreviewService;
     private final RAGDefaultProperties ragDefaultProperties;
+
+    private record AppendixImage(RetrievedChunk chunk, String previewUrl) {
+    }
 
     public String buildMarkdown(Map<String, List<RetrievedChunk>> intentChunks) {
         if (intentChunks == null || intentChunks.isEmpty()) {
@@ -56,50 +65,71 @@ public class VisualAnswerAppendixService {
                 .filter(RetrievedChunk::isVisual)
                 .forEach(chunk -> {
                     String imageUri = extractImageUri(chunk);
-                    if (StrUtil.isBlank(imageUri) || uniqueChunks.size() >= imageLimit) {
+                    if (StrUtil.isBlank(imageUri)) {
                         return;
                     }
-                    uniqueChunks.putIfAbsent(imageUri, chunk);
+                    uniqueChunks.putIfAbsent(buildVisualDedupeKey(chunk, imageUri), chunk);
                 });
 
         if (uniqueChunks.isEmpty()) {
             return "";
         }
 
-        StringBuilder appendix = new StringBuilder("\n\n---\n\n## 相关图片\n");
+        List<RetrievedChunk> selectedChunks = selectAppendixChunks(uniqueChunks.values(), imageLimit);
+        if (selectedChunks.isEmpty()) {
+            return "";
+        }
+
+        List<AppendixImage> appendixImages = selectedChunks.stream()
+                .map(chunk -> new AppendixImage(chunk, mediaPreviewService.buildPreviewUrl(extractImageUri(chunk))))
+                .filter(image -> StrUtil.isNotBlank(image.previewUrl()))
+                .toList();
+        if (appendixImages.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder appendix = new StringBuilder("\n\n---\n**相关图片参考**（共")
+                .append(appendixImages.size())
+                .append("张）\n");
         int index = 1;
-        for (Map.Entry<String, RetrievedChunk> entry : uniqueChunks.entrySet()) {
-            RetrievedChunk chunk = entry.getValue();
-            String previewUrl = mediaPreviewService.buildPreviewUrl(entry.getKey());
-            if (StrUtil.isBlank(previewUrl)) {
-                continue;
-            }
+        for (AppendixImage image : appendixImages) {
+            RetrievedChunk chunk = image.chunk();
             appendix.append("\n### 图片 ").append(index).append("\n\n");
             appendix.append("![")
                     .append(buildAltText(chunk, index).replace("[", " ").replace("]", " "))
                     .append("](<")
-                    .append(previewUrl)
+                    .append(image.previewUrl())
                     .append(">)\n\n");
 
-            String summary = extractSummary(chunk);
-            if (StrUtil.isNotBlank(summary)) {
-                appendix.append(summary.trim()).append("\n\n");
-            }
-
-            List<String> facts = new ArrayList<>(2);
-            Object pageNo = chunk.getMetadata() == null ? null : chunk.getMetadata().get("page_no");
-            if (pageNo != null) {
-                facts.add("页码：" + pageNo);
-            }
-            if (chunk.getScore() != null) {
-                facts.add("匹配分：" + String.format("%.3f", chunk.getScore()));
-            }
-            if (!facts.isEmpty()) {
-                appendix.append(String.join("  \n", facts)).append("\n\n");
+            String quote = buildReferenceQuote(chunk);
+            if (StrUtil.isNotBlank(quote)) {
+                appendix.append("> ").append(quote).append("\n\n");
             }
             index++;
         }
         return index == 1 ? "" : appendix.toString().trim();
+    }
+
+    private List<RetrievedChunk> selectAppendixChunks(Collection<RetrievedChunk> chunks, int imageLimit) {
+        List<RetrievedChunk> candidates = new ArrayList<>(chunks);
+        boolean hasRichPageEvidence = candidates.stream().anyMatch(this::isRichPageEvidence);
+        if (hasRichPageEvidence) {
+            candidates = candidates.stream()
+                    .filter(chunk -> isRichPageEvidence(chunk) || !isSimpleImageCrop(chunk))
+                    .toList();
+        }
+
+        candidates = new ArrayList<>(candidates);
+        candidates.sort((left, right) -> {
+            int priority = Integer.compare(visualPriority(left), visualPriority(right));
+            if (priority != 0) {
+                return priority;
+            }
+            return Float.compare(scoreValue(right), scoreValue(left));
+        });
+        return candidates.stream()
+                .limit(imageLimit)
+                .toList();
     }
 
     private String extractImageUri(RetrievedChunk chunk) {
@@ -114,17 +144,208 @@ public class VisualAnswerAppendixService {
         if (chunk == null) {
             return null;
         }
+        if (isRichPageEvidence(chunk)) {
+            return cleanSummary(chunk.getText(), 420);
+        }
+        String sourceImageName = sourceImageName(chunk, extractImageUri(chunk));
+        String focusedSummary = extractFocusedSummary(chunk.getText(), sourceImageName);
+        if (StrUtil.isNotBlank(focusedSummary)) {
+            return cleanSummary(focusedSummary, 220);
+        }
         if (chunk.getMetadata() != null) {
             Object summary = chunk.getMetadata().get("summary");
             if (summary != null && StrUtil.isNotBlank(String.valueOf(summary))) {
-                return String.valueOf(summary);
+                return cleanSummary(String.valueOf(summary), 320);
             }
         }
-        return chunk.getText();
+        return cleanSummary(chunk.getText(), 320);
+    }
+
+    private String buildReferenceQuote(RetrievedChunk chunk) {
+        List<String> parts = new ArrayList<>(2);
+        String summary = extractSummaryExcerpt(chunk);
+        if (StrUtil.isNotBlank(summary)) {
+            parts.add(summary);
+        }
+
+        List<String> facts = new ArrayList<>(2);
+        Object pageNo = chunk.getMetadata() == null ? null : chunk.getMetadata().get("page_no");
+        if (pageNo != null) {
+            facts.add("页码: " + pageNo);
+        }
+        if (chunk.getScore() != null) {
+            facts.add("相似度: " + String.format("%.3f", chunk.getScore()));
+        }
+        if (!facts.isEmpty()) {
+            parts.add(String.join(" | ", facts));
+        }
+        return String.join("  ", parts);
+    }
+
+    private String extractSummaryExcerpt(RetrievedChunk chunk) {
+        if (chunk == null) {
+            return null;
+        }
+        if (chunk.getMetadata() != null) {
+            Object summary = chunk.getMetadata().get("summary");
+            if (summary != null && StrUtil.isNotBlank(String.valueOf(summary))) {
+                return cleanSummary(String.valueOf(summary), 200);
+            }
+        }
+        return extractSummary(chunk);
+    }
+
+    private String cleanSummary(String raw, int maxLength) {
+        if (StrUtil.isBlank(raw)) {
+            return null;
+        }
+        String cleaned = raw
+                .replace("\\n", "\n")
+                .replaceAll("(?is)<img\\b[^>]*>", " ")
+                .replaceAll("(?is)<[^>]+>", " ")
+                .replaceAll("!\\[[^]]*]\\([^)]*\\)", " ")
+                .replaceAll("(?m)^\\s{0,3}#{1,6}\\s*", "")
+                .replaceAll("#{2,6}\\s*", " ")
+                .replaceAll("\\p{So}", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (cleaned.length() <= maxLength) {
+            return cleaned;
+        }
+        return cleaned.substring(0, maxLength) + "...";
+    }
+
+    private String extractFocusedSummary(String text, String sourceImageName) {
+        if (StrUtil.isBlank(text) || StrUtil.isBlank(sourceImageName)) {
+            return null;
+        }
+        int imageIndex = text.indexOf(sourceImageName);
+        if (imageIndex < 0) {
+            return null;
+        }
+        int imageTagEnd = text.indexOf('>', imageIndex);
+        int markdownImageEnd = text.indexOf(')', imageIndex);
+        int start = imageIndex + sourceImageName.length();
+        if (imageTagEnd >= imageIndex) {
+            start = imageTagEnd + 1;
+        } else if (markdownImageEnd >= imageIndex) {
+            start = markdownImageEnd + 1;
+        }
+        String tail = text.substring(start);
+        Matcher nextImage = IMAGE_REFERENCE_PATTERN.matcher(tail);
+        if (nextImage.find()) {
+            tail = tail.substring(0, nextImage.start());
+        }
+        return tail;
+    }
+
+    private String buildVisualDedupeKey(RetrievedChunk chunk, String imageUri) {
+        String sourceImageName = sourceImageName(chunk, imageUri);
+        String scope = metadataText(chunk, "task_id");
+        if (StrUtil.isBlank(scope)) {
+            scope = metadataText(chunk, "source_location");
+        }
+        if (StrUtil.isNotBlank(sourceImageName)) {
+            return "source:" + StrUtil.blankToDefault(scope, "") + ":" + sourceImageName;
+        }
+
+        String blockId = metadataText(chunk, "block_id");
+        if (StrUtil.isNotBlank(blockId)) {
+            return "block:" + StrUtil.blankToDefault(scope, "") + ":" + blockId;
+        }
+
+        String pageNo = metadataText(chunk, "page_no");
+        if (StrUtil.isNotBlank(pageNo) && StrUtil.isNotBlank(scope)) {
+            return "page:" + scope + ":" + pageNo;
+        }
+        return "uri:" + imageUri;
+    }
+
+    private int visualPriority(RetrievedChunk chunk) {
+        if (isRichPageEvidence(chunk)) {
+            return 0;
+        }
+        return isSimpleImageCrop(chunk) ? 2 : 1;
+    }
+
+    private boolean isSimpleImageCrop(RetrievedChunk chunk) {
+        String sourceImageName = sourceImageName(chunk, extractImageUri(chunk));
+        if (StrUtil.isBlank(sourceImageName)) {
+            return false;
+        }
+        return sourceImageName.toLowerCase(Locale.ROOT).contains("img_in_image_box")
+                && !isRichPageEvidence(chunk);
+    }
+
+    private boolean isRichPageEvidence(RetrievedChunk chunk) {
+        if (chunk == null) {
+            return false;
+        }
+        String raw = StrUtil.emptyIfNull(chunk.getText());
+        if (chunk.getMetadata() != null) {
+            Object summary = chunk.getMetadata().get("summary");
+            if (summary != null) {
+                raw += " " + summary;
+            }
+        }
+        if (StrUtil.isBlank(raw)) {
+            return false;
+        }
+        String lower = raw.toLowerCase(Locale.ROOT);
+        return lower.contains("technical specifications")
+                || lower.contains("feed width")
+                || lower.contains("price usd")
+                || lower.contains("paper capacity")
+                || lower.contains("disc capacity")
+                || raw.contains("主要参数")
+                || raw.contains("入口参数")
+                || raw.contains("价格")
+                || raw.contains("型号");
+    }
+
+    private float scoreValue(RetrievedChunk chunk) {
+        return chunk == null || chunk.getScore() == null ? 0f : chunk.getScore();
+    }
+
+    private String sourceImageName(RetrievedChunk chunk, String imageUri) {
+        String explicit = metadataText(chunk, "source_image_name");
+        if (StrUtil.isNotBlank(explicit)) {
+            return explicit;
+        }
+        explicit = metadataText(chunk, "selected_image_name");
+        if (StrUtil.isNotBlank(explicit)) {
+            return explicit;
+        }
+        if (chunk == null || chunk.getMetadata() == null) {
+            return null;
+        }
+        Object markdownImages = chunk.getMetadata().get("markdown_images");
+        if (!(markdownImages instanceof Map<?, ?> images)) {
+            return null;
+        }
+        for (Map.Entry<?, ?> entry : images.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) {
+                continue;
+            }
+            String key = String.valueOf(entry.getKey());
+            String value = String.valueOf(entry.getValue());
+            if (Objects.equals(value, imageUri)) {
+                return key;
+            }
+        }
+        return null;
+    }
+
+    private String metadataText(RetrievedChunk chunk, String key) {
+        if (chunk == null || chunk.getMetadata() == null) {
+            return null;
+        }
+        Object value = chunk.getMetadata().get(key);
+        return value == null ? null : String.valueOf(value);
     }
 
     private String buildAltText(RetrievedChunk chunk, int index) {
-        String summary = extractSummary(chunk);
+        String summary = extractSummaryExcerpt(chunk);
         if (StrUtil.isBlank(summary)) {
             return "知识库相关图片 " + index;
         }

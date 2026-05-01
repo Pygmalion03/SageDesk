@@ -89,34 +89,48 @@ async function readSseStream(response: Response, handlers: StreamHandlers, signa
     dataLines = [];
   };
 
-  while (true) {
+  const processLine = (line: string) => {
+    if (!line) {
+      dispatchEvent();
+      return;
+    }
+    if (line.startsWith(":")) {
+      return;
+    }
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim();
+      return;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trim());
+    }
+  };
+
+  let streamOpen = true;
+  while (streamOpen) {
     if (signal?.aborted) {
       reader.cancel();
       break;
     }
     const { value, done } = await reader.read();
     if (done) {
+      buffer += decoder.decode();
+      if (buffer.length > 0) {
+        const lines = buffer.split(/\r?\n/);
+        buffer = "";
+        for (const line of lines) {
+          processLine(line);
+        }
+      }
       dispatchEvent();
+      streamOpen = false;
       break;
     }
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() ?? "";
     for (const line of lines) {
-      if (!line) {
-        dispatchEvent();
-        continue;
-      }
-      if (line.startsWith(":")) {
-        continue;
-      }
-      if (line.startsWith("event:")) {
-        eventName = line.slice(6).trim();
-        continue;
-      }
-      if (line.startsWith("data:")) {
-        dataLines.push(line.slice(5).trim());
-      }
+      processLine(line);
     }
   }
 }

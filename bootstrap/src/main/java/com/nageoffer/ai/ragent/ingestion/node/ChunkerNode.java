@@ -45,6 +45,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChunkerNode implements IngestionNode {
 
+    private static final String EMBEDDING_MODEL_KEY = "embeddingModel";
+
     private final ObjectMapper objectMapper;
     private final ChunkingStrategyFactory chunkingStrategyFactory;
     private final EmbeddingService embeddingService;
@@ -57,31 +59,53 @@ public class ChunkerNode implements IngestionNode {
     @Override
     public NodeResult execute(IngestionContext context, NodeConfig config) {
         String text = StringUtils.hasText(context.getEnhancedText()) ? context.getEnhancedText() : context.getRawText();
-        if (!StringUtils.hasText(text)) {
-            return NodeResult.fail(new ClientException("No text available for chunking"));
-        }
         ChunkerSettings settings = parseSettings(config.getSettings());
-        ChunkingStrategy chunker = chunkingStrategyFactory.requireStrategy(settings.getStrategy());
-        if (chunker == null) {
-            return NodeResult.fail(new ClientException("Chunk strategy not found: " + settings.getStrategy()));
-        }
-
-        ChunkingOptions chunkConfig = convertToChunkConfig(settings);
-        List<VectorChunk> results = chunker.chunk(text, chunkConfig);
-        List<VectorChunk> chunks = convertToVectorChunks(results);
         List<VectorChunk> visualChunks = buildVisualChunks(context.getDocument(), settings);
+
+        List<VectorChunk> chunks = List.of();
+        if (StringUtils.hasText(text)) {
+            ChunkingStrategy chunker = chunkingStrategyFactory.requireStrategy(settings.getStrategy());
+            if (chunker == null) {
+                return NodeResult.fail(new ClientException("Chunk strategy not found: " + settings.getStrategy()));
+            }
+
+            ChunkingOptions chunkConfig = convertToChunkConfig(settings, context);
+            List<VectorChunk> results = chunker.chunk(text, chunkConfig);
+            chunks = convertToVectorChunks(results);
+        } else if (visualChunks.isEmpty()) {
+            return NodeResult.fail(new ClientException("No text or visual blocks available for chunking"));
+        }
 
         context.setChunks(chunks);
         context.setVisualChunks(visualChunks);
         return NodeResult.ok("Chunked text=" + chunks.size() + ", visual=" + visualChunks.size());
     }
 
-    private ChunkingOptions convertToChunkConfig(ChunkerSettings settings) {
+    private ChunkingOptions convertToChunkConfig(ChunkerSettings settings, IngestionContext context) {
+        Map<String, Object> metadata = new HashMap<>();
+        String embeddingModel = resolveTextEmbeddingModel(settings, context);
+        if (StringUtils.hasText(embeddingModel)) {
+            metadata.put(EMBEDDING_MODEL_KEY, embeddingModel);
+        }
         return ChunkingOptions.builder()
                 .chunkSize(settings.getChunkSize())
                 .overlapSize(settings.getOverlapSize())
                 .separator(settings.getSeparator())
+                .metadata(metadata)
                 .build();
+    }
+
+    private String resolveTextEmbeddingModel(ChunkerSettings settings, IngestionContext context) {
+        if (settings != null && StringUtils.hasText(settings.getEmbeddingModel())) {
+            return settings.getEmbeddingModel();
+        }
+        if (context != null && context.getMetadata() != null) {
+            Object value = context.getMetadata().get(EMBEDDING_MODEL_KEY);
+            if (value instanceof String text && StringUtils.hasText(text)) {
+                return text;
+            }
+        }
+        return null;
     }
 
     private List<VectorChunk> convertToVectorChunks(List<VectorChunk> results) {

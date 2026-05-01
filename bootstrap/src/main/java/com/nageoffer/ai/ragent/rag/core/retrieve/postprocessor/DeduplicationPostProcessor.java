@@ -83,9 +83,10 @@ public class DeduplicationPostProcessor implements SearchResultPostProcessor {
     private int getChannelPriority(SearchChannelType type) {
         return switch (type) {
             case INTENT_DIRECTED -> 1;
-            case VISUAL_GLOBAL -> 2;
-            case KEYWORD_ES -> 3;
-            case VECTOR_GLOBAL -> 4;
+            case INTENT_DIRECTED_VISUAL -> 2;
+            case VISUAL_GLOBAL -> 3;
+            case KEYWORD_ES -> 4;
+            case VECTOR_GLOBAL -> 5;
             default -> 99;
         };
     }

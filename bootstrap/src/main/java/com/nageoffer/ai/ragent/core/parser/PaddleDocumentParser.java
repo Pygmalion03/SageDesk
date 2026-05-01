@@ -59,6 +59,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Semaphore;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -69,6 +72,7 @@ public class PaddleDocumentParser implements DocumentParser {
     };
 
     private static final MediaType DEFAULT_FILE_MEDIA_TYPE = MediaType.parse("application/octet-stream");
+    private static final Pattern IMAGE_BOX_PATTERN = Pattern.compile(".*img_in_image_box_(\\d+)_(\\d+)_(\\d+)_(\\d+)\\.[^.]+$");
 
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -77,6 +81,7 @@ public class PaddleDocumentParser implements DocumentParser {
     private final S3Client s3Client;
 
     private final Set<String> ensuredBuckets = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Map<Integer, Semaphore> officialAsyncSemaphores = new ConcurrentHashMap<>();
 
     @Override
     public String getParserType() {
@@ -163,6 +168,16 @@ public class PaddleDocumentParser implements DocumentParser {
     }
 
     private ParseResult parseOfficialAsync(byte[] content, String mimeType, Map<String, Object> options) {
+        Semaphore semaphore = officialAsyncSemaphore();
+        acquireOfficialAsyncPermit(semaphore);
+        try {
+            return doParseOfficialAsync(content, mimeType, options);
+        } finally {
+            semaphore.release();
+        }
+    }
+
+    private ParseResult doParseOfficialAsync(byte[] content, String mimeType, Map<String, Object> options) {
         String jobUrl = resolveOption(options, "asyncJobUrl", properties.getAsyncJobUrl());
         if (!StringUtils.hasText(jobUrl)) {
             throw new ServiceException("Paddle asyncJobUrl is required");
@@ -185,7 +200,7 @@ public class PaddleDocumentParser implements DocumentParser {
                 .addHeader("Authorization", "bearer " + requireApiKey())
                 .build();
 
-        JsonNode submitRoot = executeJson(submitRequest, "Paddle official async submit");
+        JsonNode submitRoot = executeJsonWithRetry(submitRequest, "Paddle official async submit", options);
         String jobId = submitRoot.path("data").path("jobId").asText("");
         if (!StringUtils.hasText(jobId)) {
             throw new ServiceException("Paddle async submit did not return jobId");
@@ -258,10 +273,7 @@ public class PaddleDocumentParser implements DocumentParser {
                     options
             );
 
-            String imageUri = firstImageUri(outputImages);
-            if (!StringUtils.hasText(imageUri)) {
-                imageUri = firstImageUri(markdownImages);
-            }
+            String imageUri = firstContentImageUri(markdownImages, outputImages);
 
             Map<String, Object> blockMetadata = new LinkedHashMap<>();
             blockMetadata.put("provider", "official");
@@ -545,6 +557,38 @@ public class PaddleDocumentParser implements DocumentParser {
         }
     }
 
+    private JsonNode executeJsonWithRetry(Request request, String action, Map<String, Object> options) {
+        int maxAttempts = Math.max(
+                resolveIntOption(options, "retryMaxAttempts", properties.getAsyncSubmitMaxAttempts()),
+                1
+        );
+        long delayMs = Math.max(
+                resolveLongOption(options, "retryInitialDelayMs", properties.getAsyncSubmitRetryInitialDelayMs()),
+                0L
+        );
+        long maxDelayMs = Math.max(
+                resolveLongOption(options, "retryMaxDelayMs", properties.getAsyncSubmitRetryMaxDelayMs()),
+                delayMs
+        );
+
+        ServiceException last = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return executeJson(request, action);
+            } catch (ServiceException ex) {
+                last = ex;
+                if (attempt >= maxAttempts || !isRetryableOfficialSubmitError(ex)) {
+                    throw ex;
+                }
+                log.warn("{} retryable failure, attempt={}/{}, retryAfterMs={}, reason={}",
+                        action, attempt, maxAttempts, delayMs, ex.getErrorMessage());
+                sleep(delayMs, action + " retry interrupted");
+                delayMs = nextRetryDelay(delayMs, maxDelayMs);
+            }
+        }
+        throw last == null ? new ServiceException(action + " failed") : last;
+    }
+
     private String executeText(Request request, String action) {
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
@@ -623,6 +667,36 @@ public class PaddleDocumentParser implements DocumentParser {
         return Boolean.parseBoolean(String.valueOf(value));
     }
 
+    private int resolveIntOption(Map<String, Object> options, String key, int defaultValue) {
+        if (options == null || !options.containsKey(key)) {
+            return defaultValue;
+        }
+        Object value = options.get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+
+    private long resolveLongOption(Map<String, Object> options, String key, long defaultValue) {
+        if (options == null || !options.containsKey(key)) {
+            return defaultValue;
+        }
+        Object value = options.get(key);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.parseLong(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+
     private int resolvePageNo(JsonNode pageNode, int pageIndex) {
         if (pageNode != null) {
             JsonNode pageNoNode = pageNode.get("pageNo");
@@ -642,6 +716,85 @@ public class PaddleDocumentParser implements DocumentParser {
             return null;
         }
         return images.values().iterator().next();
+    }
+
+    private String firstContentImageUri(Map<String, String> markdownImages, Map<String, String> outputImages) {
+        String outputImageUri = firstNonDebugOutputImageUri(outputImages);
+        if (StringUtils.hasText(outputImageUri)) {
+            return outputImageUri;
+        }
+        String imageUri = largestImageUri(markdownImages);
+        if (StringUtils.hasText(imageUri)) {
+            return imageUri;
+        }
+        return null;
+    }
+
+    private String firstNonDebugOutputImageUri(Map<String, String> outputImages) {
+        if (outputImages == null || outputImages.isEmpty()) {
+            return null;
+        }
+        return outputImages.entrySet().stream()
+                .filter(entry -> !isLayoutDebugImage(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .filter(StringUtils::hasText)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String largestImageUri(Map<String, String> images) {
+        if (images == null || images.isEmpty()) {
+            return null;
+        }
+        Map.Entry<String, String> best = null;
+        long bestArea = -1L;
+        for (Map.Entry<String, String> entry : images.entrySet()) {
+            if (entry == null || !StringUtils.hasText(entry.getValue())) {
+                continue;
+            }
+            long area = imageBoxArea(entry.getKey());
+            if (best == null || area > bestArea) {
+                best = entry;
+                bestArea = area;
+            }
+        }
+        return best == null ? null : best.getValue();
+    }
+
+    private long imageBoxArea(String imageName) {
+        if (!StringUtils.hasText(imageName)) {
+            return 0L;
+        }
+        Matcher matcher = IMAGE_BOX_PATTERN.matcher(imageName);
+        if (!matcher.matches()) {
+            return 0L;
+        }
+        long x1 = parseLong(matcher.group(1));
+        long y1 = parseLong(matcher.group(2));
+        long x2 = parseLong(matcher.group(3));
+        long y2 = parseLong(matcher.group(4));
+        long width = Math.max(x2 - x1, 0L);
+        long height = Math.max(y2 - y1, 0L);
+        return width * height;
+    }
+
+    private long parseLong(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignored) {
+            return 0L;
+        }
+    }
+
+    private boolean isLayoutDebugImage(String imageName) {
+        if (!StringUtils.hasText(imageName)) {
+            return false;
+        }
+        String normalized = imageName.toLowerCase(Locale.ROOT);
+        return normalized.contains("layout_det_res")
+                || normalized.contains("layout_res")
+                || normalized.contains("det_res")
+                || normalized.contains("ocr_res");
     }
 
     private String summarize(String text) {
@@ -702,11 +855,56 @@ public class PaddleDocumentParser implements DocumentParser {
     }
 
     private void sleep(long intervalMs) {
+        sleep(intervalMs, "Paddle async polling interrupted");
+    }
+
+    private void sleep(long intervalMs, String interruptedMessage) {
+        if (intervalMs <= 0) {
+            return;
+        }
         try {
             Thread.sleep(intervalMs);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new ServiceException("Paddle async polling interrupted");
+            throw new ServiceException(interruptedMessage);
         }
+    }
+
+    private Semaphore officialAsyncSemaphore() {
+        int maxConcurrent = Math.max(properties.getAsyncMaxConcurrentJobs(), 1);
+        return officialAsyncSemaphores.computeIfAbsent(maxConcurrent, Semaphore::new);
+    }
+
+    private void acquireOfficialAsyncPermit(Semaphore semaphore) {
+        try {
+            semaphore.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceException("Paddle async job throttling interrupted");
+        }
+    }
+
+    private boolean isRetryableOfficialSubmitError(ServiceException ex) {
+        String message = ex.getErrorMessage();
+        if (!StringUtils.hasText(message)) {
+            return false;
+        }
+        return message.contains("HTTP 408")
+                || message.contains("HTTP 429")
+                || message.contains("HTTP 500")
+                || message.contains("HTTP 502")
+                || message.contains("HTTP 503")
+                || message.contains("HTTP 504");
+    }
+
+    private long nextRetryDelay(long currentDelayMs, long maxDelayMs) {
+        if (currentDelayMs <= 0) {
+            return 0;
+        }
+        long next = currentDelayMs * 2;
+        if (next < 0) {
+            return maxDelayMs;
+        }
+        return Math.min(next, maxDelayMs);
     }
 }

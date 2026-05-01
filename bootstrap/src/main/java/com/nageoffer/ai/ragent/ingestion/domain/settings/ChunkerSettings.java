@@ -56,6 +56,8 @@ public class ChunkerSettings {
      */
     private String separator;
 
+    private String embeddingModel;
+
     private String visualEmbeddingModel;
 
     private Integer visualMaxLength;

@@ -40,9 +40,9 @@ const formSchema = z.object({
   embeddingModel: z.string().min(1, "请选择Embedding模型"),
   collectionName: z
     .string()
-    .min(1, "请输入Collection名称")
+    .min(3, "Collection名称至少3个字符")
     .max(50, "名称不能超过50个字符")
-    .regex(/^[a-z0-9]+$/, "只能包含小写英文字母和数字"),
+    .regex(/^[a-z][a-z0-9]*$/, "只能包含小写英文字母和数字，且必须以字母开头"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -220,7 +220,7 @@ export function CreateKnowledgeBaseDialog({
                     <Input placeholder="例如：productdocs" {...field} />
                   </FormControl>
                   <FormDescription>
-                    只能包含小写英文字母和数字
+                    只能包含小写英文字母和数字，且必须以字母开头
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

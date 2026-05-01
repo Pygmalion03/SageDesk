@@ -94,12 +94,17 @@ rag:
     channels:
       vector-global:
         confidence-threshold: 0.6
+        supplement-intent-directed: true
         top-k-multiplier: 3
       visual-global:
         enabled: false
         top-k-multiplier: 2
         embedding-model: qwen3-vl-embedding-1024
         rerank-model: qwen3-vl-rerank
+      intent-directed-visual:
+        enabled: true
+        top-k-multiplier: 2
+        embedding-model: qwen3-vl-embedding-1024
       intent-directed:
         min-intent-score: 0.4
         top-k-multiplier: 2

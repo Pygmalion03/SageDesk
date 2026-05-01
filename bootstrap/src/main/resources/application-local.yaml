@@ -1,7 +1,7 @@
 spring:
   data:
     redis:
-      port: ${RAG_REDIS_PORT:6380}
+      port: ${RAG_REDIS_PORT:6402}
 
 rag:
   default:
@@ -18,6 +18,10 @@ rag:
     model: ${PADDLE_MODEL:PaddleOCR-VL-1.5}
     async-poll-interval-ms: ${PADDLE_ASYNC_POLL_INTERVAL_MS:5000}
     async-timeout-ms: ${PADDLE_ASYNC_TIMEOUT_MS:600000}
+    async-max-concurrent-jobs: ${PADDLE_ASYNC_MAX_CONCURRENT_JOBS:2}
+    async-submit-max-attempts: ${PADDLE_ASYNC_SUBMIT_MAX_ATTEMPTS:3}
+    async-submit-retry-initial-delay-ms: ${PADDLE_ASYNC_SUBMIT_RETRY_INITIAL_DELAY_MS:3000}
+    async-submit-retry-max-delay-ms: ${PADDLE_ASYNC_SUBMIT_RETRY_MAX_DELAY_MS:30000}
     result-download-dir: ${PADDLE_RESULT_DOWNLOAD_DIR:scripts/paddle_api_runtime}
     download-remote-images: ${PADDLE_DOWNLOAD_REMOTE_IMAGES:true}
     use-doc-orientation-classify: ${PADDLE_USE_DOC_ORIENTATION_CLASSIFY:false}

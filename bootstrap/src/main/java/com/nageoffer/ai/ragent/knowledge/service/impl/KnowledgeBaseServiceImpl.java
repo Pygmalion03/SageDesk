@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.nageoffer.ai.ragent.framework.errorcode.BaseErrorCode;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBaseCreateRequest;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBasePageRequest;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBaseUpdateRequest;
@@ -47,17 +48,23 @@ import org.springframework.util.StringUtils;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyOwnedByYouException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
+
+    private static final Pattern COLLECTION_NAME_PATTERN = Pattern.compile("^[a-z][a-z0-9]{2,49}$");
+    private static final String COLLECTION_NAME_RULE_MESSAGE =
+            "Collection 名称只能使用小写英文字母和数字，必须以字母开头，长度 3-50 个字符";
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final KnowledgeDocumentMapper knowledgeDocumentMapper;
@@ -68,6 +75,8 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
     @Transactional
     @Override
     public String create(KnowledgeBaseCreateRequest requestParam) {
+        validateCreateRequest(requestParam);
+
         // 名称重复校验
         String name = requestParam.getName().replaceAll("\\s+", "");
         Long count = knowledgeBaseMapper.selectCount(
@@ -77,6 +86,15 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         );
         if (count > 0) {
             throw new ServiceException("知识库名称已存在：" + requestParam.getName());
+        }
+
+        Long collectionCount = knowledgeBaseMapper.selectCount(
+                new LambdaQueryWrapper<KnowledgeBaseDO>()
+                        .eq(KnowledgeBaseDO::getCollectionName, requestParam.getCollectionName())
+                        .eq(KnowledgeBaseDO::getDeleted, 0)
+        );
+        if (collectionCount > 0) {
+            throw new ClientException("Collection 名称已存在：" + requestParam.getCollectionName());
         }
 
         KnowledgeBaseDO kbDO = KnowledgeBaseDO.builder()
@@ -95,12 +113,18 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
             s3Client.createBucket(builder -> builder.bucket(bucketName));
             log.info("成功创建RestFS存储桶，Bucket名称: {}", bucketName);
         } catch (BucketAlreadyOwnedByYouException | BucketAlreadyExistsException e) {
-            if (e instanceof BucketAlreadyOwnedByYouException) {
-                log.error("RestFS存储桶已存在，Bucket名称: {}", bucketName, e);
-            } else {
-                log.error("RestFS存储桶已存在但由其他账户拥有，Bucket名称: {}", bucketName, e);
+            throw collectionNameOccupied(bucketName, e);
+        } catch (S3Exception e) {
+            if (isBucketAlreadyExists(e)) {
+                throw collectionNameOccupied(bucketName, e);
             }
-            throw new ServiceException("存储桶名称已被占用：" + bucketName);
+            throw new ServiceException(
+                    "创建知识库存储空间失败，请检查 RustFS/S3 服务：" + bucketName,
+                    e,
+                    BaseErrorCode.SERVICE_ERROR
+            );
+        } catch (IllegalArgumentException e) {
+            throw new ClientException(COLLECTION_NAME_RULE_MESSAGE, e, BaseErrorCode.CLIENT_ERROR);
         }
 
         VectorSpaceSpec spaceSpec = VectorSpaceSpec.builder()
@@ -113,6 +137,44 @@ public class KnowledgeBaseServiceImpl implements KnowledgeBaseService {
         vectorStoreAdmin.ensureVectorSpace(spaceSpec);
 
         return String.valueOf(kbDO.getId());
+    }
+
+    private void validateCreateRequest(KnowledgeBaseCreateRequest requestParam) {
+        if (requestParam == null) {
+            throw new ClientException("创建知识库参数不能为空");
+        }
+        if (!StringUtils.hasText(requestParam.getName())) {
+            throw new ClientException("知识库名称不能为空");
+        }
+        if (!StringUtils.hasText(requestParam.getEmbeddingModel())) {
+            throw new ClientException("Embedding 模型不能为空");
+        }
+        if (!StringUtils.hasText(requestParam.getCollectionName())) {
+            throw new ClientException("Collection 名称不能为空");
+        }
+
+        requestParam.setName(requestParam.getName().trim());
+        requestParam.setEmbeddingModel(requestParam.getEmbeddingModel().trim());
+        requestParam.setCollectionName(requestParam.getCollectionName().trim());
+
+        if (!COLLECTION_NAME_PATTERN.matcher(requestParam.getCollectionName()).matches()) {
+            throw new ClientException(COLLECTION_NAME_RULE_MESSAGE);
+        }
+    }
+
+    private ClientException collectionNameOccupied(String bucketName, Exception cause) {
+        return new ClientException(
+                "Collection 名称对应的存储桶已存在，请换一个名称：" + bucketName,
+                cause,
+                BaseErrorCode.CLIENT_ERROR
+        );
+    }
+
+    private boolean isBucketAlreadyExists(S3Exception e) {
+        String errorCode = e.awsErrorDetails() == null ? null : e.awsErrorDetails().errorCode();
+        return e.statusCode() == 409
+                || "BucketAlreadyExists".equals(errorCode)
+                || "BucketAlreadyOwnedByYou".equals(errorCode);
     }
 
     @Override

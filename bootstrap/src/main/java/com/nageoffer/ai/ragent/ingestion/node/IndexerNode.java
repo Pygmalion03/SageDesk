@@ -195,13 +195,13 @@ public class IndexerNode implements IngestionNode {
     }
 
     private int resolveDimension(List<VectorChunk> chunks, Integer configured) {
-        if (configured != null && configured > 0) {
-            return configured;
-        }
         for (VectorChunk chunk : chunks) {
             if (chunk.getEmbedding() != null && chunk.getEmbedding().length > 0) {
                 return chunk.getEmbedding().length;
             }
+        }
+        if (configured != null && configured > 0) {
+            return configured;
         }
         return 0;
     }

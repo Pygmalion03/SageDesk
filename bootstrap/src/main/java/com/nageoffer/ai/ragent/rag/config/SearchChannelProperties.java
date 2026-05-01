@@ -35,6 +35,8 @@ public class SearchChannelProperties {
 
         private IntentDirected intentDirected = new IntentDirected();
 
+        private IntentDirectedVisual intentDirectedVisual = new IntentDirectedVisual();
+
         private VisualGlobal visualGlobal = new VisualGlobal();
     }
 
@@ -44,6 +46,8 @@ public class SearchChannelProperties {
         private boolean enabled = true;
 
         private double confidenceThreshold = 0.6;
+
+        private boolean supplementIntentDirected = true;
 
         private int topKMultiplier = 3;
     }
@@ -56,6 +60,16 @@ public class SearchChannelProperties {
         private double minIntentScore = 0.4;
 
         private int topKMultiplier = 2;
+    }
+
+    @Data
+    public static class IntentDirectedVisual {
+
+        private boolean enabled = true;
+
+        private int topKMultiplier = 2;
+
+        private String embeddingModel = "qwen3-vl-embedding-1024";
     }
 
     @Data

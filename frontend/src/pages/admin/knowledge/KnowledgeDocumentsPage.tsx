@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type InputHTMLAttributes, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Check, FileUp, FolderOpen, PlayCircle, RefreshCw, Trash2, Pencil, FileBarChart } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +30,14 @@ import {
   getChunkLogsPage
 } from "@/services/knowledgeService";
 import { getIngestionPipelines, type IngestionPipeline } from "@/services/ingestionService";
+import { runKnowledgeDocumentActionQueue } from "@/services/knowledgeActionQueue";
+import {
+  filterSupportedUploadFiles,
+  getUploadFileDisplayName,
+  isPreviewableUploadImage,
+  SUPPORTED_UPLOAD_ACCEPT
+} from "@/services/knowledgeUploadFiles";
+import { runKnowledgeDocumentUploadQueue } from "@/services/knowledgeUploadQueue";
 import { getErrorMessage } from "@/utils/error";
 
 const PAGE_SIZE = 10;
@@ -141,6 +149,11 @@ export function KnowledgeDocumentsPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(null);
   const [chunkTarget, setChunkTarget] = useState<KnowledgeDocument | null>(null);
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [batchChunking, setBatchChunking] = useState(false);
+  const [batchChunkProgress, setBatchChunkProgress] = useState<{ completed: number; failed: number; total: number } | null>(
+    null
+  );
   const [detailTarget, setDetailTarget] = useState<KnowledgeDocument | null>(null);
   const [detailName, setDetailName] = useState("");
   const [detailSaving, setDetailSaving] = useState(false);
@@ -150,8 +163,14 @@ export function KnowledgeDocumentsPage() {
   const [logLoading, setLogLoading] = useState(false);
 
   const documents = pageData?.records || [];
+  const currentPageDocIds = documents.map((doc) => String(doc.id));
+  const currentPageDocIdKey = currentPageDocIds.join(",");
+  const selectedDocuments = documents.filter((doc) => selectedDocIds.has(String(doc.id)));
+  const currentPageSelectedCount = currentPageDocIds.filter((id) => selectedDocIds.has(id)).length;
+  const allCurrentPageSelected = currentPageDocIds.length > 0 && currentPageSelectedCount === currentPageDocIds.length;
+  const partiallyCurrentPageSelected = currentPageSelectedCount > 0 && !allCurrentPageSelected;
 
-  const loadKnowledgeBase = async () => {
+  const loadKnowledgeBase = useCallback(async () => {
     if (!kbId) return;
     try {
       const data = await getKnowledgeBase(kbId);
@@ -160,9 +179,9 @@ export function KnowledgeDocumentsPage() {
       toast.error(getErrorMessage(error, "加载知识库失败"));
       console.error(error);
     }
-  };
+  }, [kbId]);
 
-  const loadDocuments = async (current = pageNo, status = statusFilter, keywordValue = keyword) => {
+  const loadDocuments = useCallback(async (current = pageNo, status = statusFilter, keywordValue = keyword) => {
     if (!kbId) return;
     setLoading(true);
     try {
@@ -179,15 +198,23 @@ export function KnowledgeDocumentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [kbId, keyword, pageNo, statusFilter]);
 
   useEffect(() => {
     loadKnowledgeBase();
-  }, [kbId]);
+  }, [loadKnowledgeBase]);
 
   useEffect(() => {
     loadDocuments();
-  }, [kbId, pageNo, statusFilter, keyword]);
+  }, [loadDocuments]);
+
+  useEffect(() => {
+    setSelectedDocIds((prev) => {
+      const current = new Set(currentPageDocIdKey ? currentPageDocIdKey.split(",") : []);
+      const next = new Set([...prev].filter((id) => current.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [currentPageDocIdKey]);
 
   useEffect(() => {
     if (detailTarget) {
@@ -242,12 +269,75 @@ export function KnowledgeDocumentsPage() {
     if (!chunkTarget) return;
     try {
       await startDocumentChunk(String(chunkTarget.id));
-      toast.success("已开始分块");
+      toast.success(chunkTarget.processMode?.toLowerCase() === "pipeline" ? "已提交数据通道任务" : "已开始分块");
       setChunkTarget(null);
       await loadDocuments(pageNo, statusFilter, keyword);
     } catch (error) {
       toast.error(getErrorMessage(error, "分块失败"));
       console.error(error);
+    }
+  };
+
+  const handleToggleSelectDocument = (docId: string, checked: boolean) => {
+    setSelectedDocIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(docId);
+      } else {
+        next.delete(docId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectCurrentPage = (checked: boolean) => {
+    setSelectedDocIds(() => {
+      return checked ? new Set(currentPageDocIds) : new Set();
+    });
+  };
+
+  const handleBatchChunk = async () => {
+    const targets = selectedDocuments.map((doc) => String(doc.id));
+    if (targets.length === 0) {
+      toast.error("请选择要处理的文档");
+      return;
+    }
+
+    setBatchChunking(true);
+    let completed = 0;
+    let failed = 0;
+    setBatchChunkProgress({ completed, failed, total: targets.length });
+    try {
+      const result = await runKnowledgeDocumentActionQueue({
+        items: targets,
+        run: async (docId) => {
+          try {
+            await startDocumentChunk(docId);
+            completed += 1;
+            setBatchChunkProgress({ completed, failed, total: targets.length });
+          } catch (error) {
+            completed += 1;
+            failed += 1;
+            setBatchChunkProgress({ completed, failed, total: targets.length });
+            throw error;
+          }
+        }
+      });
+
+      if (result.failed.length > 0) {
+        setSelectedDocIds(new Set(result.failed.map((item) => item.item)));
+        toast.error(`已提交 ${result.successful.length}/${result.total} 个处理任务，失败 ${result.failed.length} 个`);
+      } else {
+        setSelectedDocIds(new Set());
+        setBatchChunkProgress(null);
+        toast.success(`已提交 ${result.total} 个处理任务`);
+      }
+      await loadDocuments(pageNo, statusFilter, keyword);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "批量处理失败"));
+      console.error(error);
+    } finally {
+      setBatchChunking(false);
     }
   };
 
@@ -335,6 +425,7 @@ export function KnowledgeDocumentsPage() {
     detailTarget?.overlapChars ?? getConfigNumber(detailConfig, "overlapChars", DEFAULT_OVERLAP_CHARS);
   const detailNameChanged = detailTarget ? detailName.trim() !== (detailTarget.docName || "") : false;
   const detailChunkSizeDisplay = detailChunkSize === INT_MAX ? "不分块" : detailChunkSize;
+  const chunkTargetIsPipeline = chunkTarget?.processMode?.toLowerCase() === "pipeline";
 
   return (
     <div className="admin-page">
@@ -364,6 +455,14 @@ export function KnowledgeDocumentsPage() {
               <CardDescription>支持筛选与分块管理</CardDescription>
             </div>
             <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBatchChunk}
+                disabled={selectedDocuments.length === 0 || batchChunking}
+              >
+                <PlayCircle className="mr-2 h-4 w-4" />
+                {batchChunking ? "提交中..." : `处理选中(${selectedDocuments.length})`}
+              </Button>
               <Input
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
@@ -400,14 +499,27 @@ export function KnowledgeDocumentsPage() {
           </div>
         </CardHeader>
         <CardContent>
+          {batchChunkProgress ? (
+            <div className="mb-3 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              批量处理进度 {batchChunkProgress.completed}/{batchChunkProgress.total}
+              {batchChunkProgress.failed > 0 ? `，失败 ${batchChunkProgress.failed}` : ""}
+            </div>
+          ) : null}
           {loading ? (
             <div className="py-8 text-center text-muted-foreground">加载中...</div>
           ) : documents.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">暂无文档</div>
           ) : (
-            <Table className="min-w-[1120px]">
+            <Table className="min-w-[1180px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[44px]">
+                    <Checkbox
+                      checked={allCurrentPageSelected ? true : partiallyCurrentPageSelected ? "indeterminate" : false}
+                      onCheckedChange={(checked) => handleToggleSelectCurrentPage(Boolean(checked))}
+                      aria-label="选择当前页文档"
+                    />
+                  </TableHead>
                   <TableHead className="w-[260px]">文档</TableHead>
                   <TableHead className="w-[120px]">来源</TableHead>
                   <TableHead className="w-[120px]">处理模式</TableHead>
@@ -423,6 +535,13 @@ export function KnowledgeDocumentsPage() {
               <TableBody>
                 {documents.map((doc) => (
                   <TableRow key={doc.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedDocIds.has(String(doc.id))}
+                        onCheckedChange={(checked) => handleToggleSelectDocument(String(doc.id), Boolean(checked))}
+                        aria-label={`选择 ${doc.docName || "文档"}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex min-w-0 max-w-[280px] items-center gap-2">
                         <FolderOpen className="h-4 w-4 text-muted-foreground" />
@@ -502,7 +621,7 @@ export function KnowledgeDocumentsPage() {
                           size="icon"
                           variant="ghost"
                           onClick={() => setChunkTarget(doc)}
-                          title="分块"
+                          title={doc.processMode?.toLowerCase() === "pipeline" ? "执行数据通道" : "分块"}
                         >
                           <PlayCircle className="h-4 w-4" />
                         </Button>
@@ -559,10 +678,12 @@ export function KnowledgeDocumentsPage() {
         open={uploadOpen}
         onOpenChange={setUploadOpen}
         onSubmit={async (payload) => {
-          if (!kbId) return;
-          await uploadDocument(kbId, payload);
-          toast.success("上传成功");
-          setUploadOpen(false);
+          if (!kbId) {
+            throw new Error("Knowledge base id is missing");
+          }
+          return uploadDocument(kbId, payload);
+        }}
+        onComplete={async () => {
           setPageNo(1);
           await loadDocuments(1, statusFilter, keyword);
         }}
@@ -588,7 +709,13 @@ export function KnowledgeDocumentsPage() {
       <AlertDialog open={Boolean(chunkTarget)} onOpenChange={(open) => (!open ? setChunkTarget(null) : null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{chunkTarget?.chunkCount ? "重新分块？" : "开始分块？"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {chunkTargetIsPipeline
+                ? "执行数据通道？"
+                : chunkTarget?.chunkCount
+                  ? "重新分块？"
+                  : "开始分块？"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {chunkTarget?.chunkCount ? (
                 <>
@@ -597,7 +724,10 @@ export function KnowledgeDocumentsPage() {
                   <span className="font-medium text-amber-600">重新分块会清空原有 Chunk 记录及向量数据。</span>
                 </>
               ) : (
-                <>文档 [{chunkTarget?.docName}] 将开始分块并写入向量库。</>
+                <>
+                  文档 [{chunkTarget?.docName}] 将
+                  {chunkTargetIsPipeline ? "执行数据通道并写入向量库。" : "开始分块并写入向量库。"}
+                </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -844,7 +974,15 @@ export function KnowledgeDocumentsPage() {
 interface UploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (payload: KnowledgeDocumentUploadPayload) => Promise<void>;
+  onSubmit: (payload: KnowledgeDocumentUploadPayload) => Promise<KnowledgeDocument>;
+  onComplete: () => Promise<void>;
+}
+
+interface UploadFilePreview {
+  name: string;
+  size: number;
+  isImage: boolean;
+  previewUrl?: string;
 }
 
 const uploadSchema = z
@@ -853,7 +991,7 @@ const uploadSchema = z
     sourceLocation: z.string().optional(),
     scheduleEnabled: z.boolean().default(false),
     scheduleCron: z.string().optional(),
-    processMode: z.enum(["chunk", "pipeline"]).default("chunk"),
+    processMode: z.enum(["chunk", "pipeline"]).default("pipeline"),
     chunkStrategy: z.enum(["fixed_size", "structure_aware"]).optional(),
     pipelineId: z.string().optional(),
     chunkSize: z.string().optional(),
@@ -916,26 +1054,25 @@ const uploadSchema = z
         requireNumber(values.minChars, "minChars", "块下限");
         requireNumber(values.overlapChars, "overlapChars", "重叠大小");
       }
-    } else if (values.processMode === "pipeline") {
-      if (isBlank(values.pipelineId)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["pipelineId"],
-          message: "请选择数据通道"
-        });
-      }
     }
   });
 
 type UploadFormValues = z.infer<typeof uploadSchema>;
 
-function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
-  const [file, setFile] = useState<File | null>(null);
+function UploadDialog({ open, onOpenChange, onSubmit, onComplete }: UploadDialogProps) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<UploadFilePreview[]>([]);
+  const [rejectedFileCount, setRejectedFileCount] = useState(0);
   const [saving, setSaving] = useState(false);
   const [noChunk, setNoChunk] = useState(false);
   const [originalChunkSize, setOriginalChunkSize] = useState("512");
   const [pipelines, setPipelines] = useState<IngestionPipeline[]>([]);
   const [loadingPipelines, setLoadingPipelines] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ completed: number; failed: number; total: number } | null>(
+    null
+  );
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadSchema),
@@ -944,7 +1081,7 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
       sourceLocation: "",
       scheduleEnabled: false,
       scheduleCron: "",
-      processMode: "chunk",
+      processMode: "pipeline",
       chunkStrategy: "fixed_size",
       pipelineId: "",
       chunkSize: "512",
@@ -981,13 +1118,15 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
 
   useEffect(() => {
     if (open) {
-      setFile(null);
+      setFiles([]);
+      setRejectedFileCount(0);
+      setUploadProgress(null);
       form.reset({
         sourceType: "file",
         sourceLocation: "",
         scheduleEnabled: false,
         scheduleCron: "",
-        processMode: "chunk",
+        processMode: "pipeline",
         chunkStrategy: "fixed_size",
         pipelineId: "",
         chunkSize: "512",
@@ -1005,9 +1144,32 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
 
   useEffect(() => {
     if (isUrlSource) {
-      setFile(null);
+      setFiles([]);
+      setRejectedFileCount(0);
+      setUploadProgress(null);
     }
   }, [isUrlSource]);
+
+  useEffect(() => {
+    const previews = files.slice(0, 12).map((file) => {
+      const isImage = isPreviewableUploadImage(file);
+      return {
+        name: getUploadFileDisplayName(file),
+        size: file.size,
+        isImage,
+        previewUrl: isImage ? URL.createObjectURL(file) : undefined
+      };
+    });
+    setFilePreviews(previews);
+
+    return () => {
+      previews.forEach((preview) => {
+        if (preview.previewUrl) {
+          URL.revokeObjectURL(preview.previewUrl);
+        }
+      });
+    };
+  }, [files]);
 
   // 监听块大小变化，如果用户手动修改了值，取消"不分块"状态
   useEffect(() => {
@@ -1036,11 +1198,32 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  const handleSubmit = async (values: UploadFormValues) => {
-    if (values.sourceType === "file" && !file) {
-      toast.error("请选择文件");
-      return;
+  const selectFiles = (fileList: FileList | null) => {
+    const result = filterSupportedUploadFiles(Array.from(fileList || []));
+    setFiles(result.supported);
+    setRejectedFileCount(result.rejected.length);
+    setUploadProgress(null);
+    if (result.supported.length > 0) {
+      form.setValue("processMode", "pipeline");
     }
+    if (result.rejected.length > 0) {
+      toast.warning(`已忽略 ${result.rejected.length} 个暂不支持的文件`);
+    }
+  };
+
+  const clearFiles = () => {
+    setFiles([]);
+    setRejectedFileCount(0);
+    setUploadProgress(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (folderInputRef.current) {
+      folderInputRef.current.value = "";
+    }
+  };
+
+  const buildBasePayload = (values: UploadFormValues): Omit<KnowledgeDocumentUploadPayload, "file"> => {
     const chunkSize = parseNumber(values.chunkSize);
     const overlapSize = parseNumber(values.overlapSize);
     const targetChars = parseNumber(values.targetChars);
@@ -1048,28 +1231,75 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
     const minChars = parseNumber(values.minChars);
     const overlapChars = parseNumber(values.overlapChars);
 
+    return {
+      sourceType: values.sourceType,
+      sourceLocation: values.sourceType === "url" ? values.sourceLocation?.trim() || null : null,
+      scheduleEnabled: values.sourceType === "url" ? values.scheduleEnabled : false,
+      scheduleCron:
+        values.sourceType === "url" && values.scheduleEnabled
+          ? values.scheduleCron?.trim() || null
+          : null,
+      processMode: values.processMode,
+      chunkStrategy: values.processMode === "chunk" ? values.chunkStrategy : undefined,
+      chunkSize: values.processMode === "chunk" && values.chunkStrategy === "fixed_size" ? chunkSize : null,
+      overlapSize: values.processMode === "chunk" && values.chunkStrategy === "fixed_size" ? overlapSize : null,
+      targetChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? targetChars : null,
+      maxChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? maxChars : null,
+      minChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? minChars : null,
+      overlapChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? overlapChars : null,
+      pipelineId: values.processMode === "pipeline" ? values.pipelineId || null : null
+    };
+  };
+
+  const handleSubmit = async (values: UploadFormValues) => {
+    if (values.sourceType === "file" && files.length === 0) {
+      toast.error("请选择文件");
+      return;
+    }
     setSaving(true);
     try {
-      const payload: KnowledgeDocumentUploadPayload = {
-        sourceType: values.sourceType,
-        file: values.sourceType === "file" ? file : null,
-        sourceLocation: values.sourceType === "url" ? values.sourceLocation.trim() : null,
-        scheduleEnabled: values.sourceType === "url" ? values.scheduleEnabled : false,
-        scheduleCron:
-          values.sourceType === "url" && values.scheduleEnabled
-            ? values.scheduleCron.trim()
-            : null,
-        processMode: values.processMode,
-        chunkStrategy: values.processMode === "chunk" ? values.chunkStrategy : undefined,
-        chunkSize: values.processMode === "chunk" && values.chunkStrategy === "fixed_size" ? chunkSize : null,
-        overlapSize: values.processMode === "chunk" && values.chunkStrategy === "fixed_size" ? overlapSize : null,
-        targetChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? targetChars : null,
-        maxChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? maxChars : null,
-        minChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? minChars : null,
-        overlapChars: values.processMode === "chunk" && values.chunkStrategy === "structure_aware" ? overlapChars : null,
-        pipelineId: values.processMode === "pipeline" ? values.pipelineId : null
-      };
-      await onSubmit(payload);
+      const basePayload = buildBasePayload(values);
+      if (values.sourceType === "url") {
+        await onSubmit({ ...basePayload, file: null });
+        toast.success("上传成功");
+        onOpenChange(false);
+        await onComplete();
+        return;
+      }
+
+      let completed = 0;
+      let failed = 0;
+      setUploadProgress({ completed, failed, total: files.length });
+      const result = await runKnowledgeDocumentUploadQueue({
+        files,
+        createPayload: (selectedFile) => ({ ...basePayload, file: selectedFile }),
+        upload: async (payload) => {
+          try {
+            const document = await onSubmit(payload as KnowledgeDocumentUploadPayload);
+            completed += 1;
+            setUploadProgress({ completed, failed, total: files.length });
+            return document;
+          } catch (error) {
+            completed += 1;
+            failed += 1;
+            setUploadProgress({ completed, failed, total: files.length });
+            throw error;
+          }
+        }
+      });
+
+      if (result.successful.length > 0) {
+        await onComplete();
+      }
+      if (result.failed.length > 0) {
+        setFiles(result.failed.map((item) => item.file));
+        toast.error(`上传完成 ${result.successful.length}/${result.total}，失败 ${result.failed.length} 个`);
+        return;
+      }
+
+      toast.success(files.length > 1 ? `已上传 ${files.length} 个文件` : "上传成功");
+      onOpenChange(false);
+      clearFiles();
     } catch (error) {
       toast.error(getErrorMessage(error, "上传失败"));
       console.error(error);
@@ -1077,6 +1307,15 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
       setSaving(false);
     }
   };
+
+  const directoryInputProps: InputHTMLAttributes<HTMLInputElement> & {
+    webkitdirectory: string;
+    directory: string;
+  } = {
+    webkitdirectory: "",
+    directory: ""
+  };
+  const hiddenSelectedFileCount = Math.max(files.length - filePreviews.length, 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1137,8 +1376,71 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
               <FormItem>
                 <FormLabel>本地文件</FormLabel>
                 <FormControl>
-                  <Input type="file" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+                  <div className="space-y-3">
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept={SUPPORTED_UPLOAD_ACCEPT}
+                      onChange={(event) => selectFiles(event.target.files)}
+                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        ref={folderInputRef}
+                        type="file"
+                        className="hidden"
+                        multiple
+                        onChange={(event) => selectFiles(event.target.files)}
+                        {...directoryInputProps}
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={() => folderInputRef.current?.click()}>
+                        <FolderOpen className="mr-2 h-4 w-4" />
+                        选择文件夹
+                      </Button>
+                      {files.length > 0 ? (
+                        <Button type="button" variant="ghost" size="sm" onClick={clearFiles} disabled={saving}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          清空
+                        </Button>
+                      ) : null}
+                    </div>
+                    {files.length > 0 ? (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                        <div className="font-medium text-foreground">已选择 {files.length} 个文件</div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {filePreviews.map((preview, index) => (
+                            <div key={`${preview.name}-${index}`} className="min-w-0 rounded border bg-background p-2">
+                              {preview.isImage && preview.previewUrl ? (
+                                <img
+                                  src={preview.previewUrl}
+                                  alt={preview.name}
+                                  className="mb-2 h-20 w-full rounded object-cover"
+                                />
+                              ) : (
+                                <div className="mb-2 flex h-20 items-center justify-center rounded bg-muted text-[11px] font-medium uppercase text-muted-foreground">
+                                  {preview.name.split(".").pop() || "file"}
+                                </div>
+                              )}
+                              <div className="truncate" title={preview.name}>
+                                {preview.name}
+                              </div>
+                              <div>{formatSize(preview.size)}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {hiddenSelectedFileCount > 0 ? <div className="mt-2">还有 {hiddenSelectedFileCount} 个文件</div> : null}
+                        {rejectedFileCount > 0 ? <div className="mt-1 text-amber-600">已忽略 {rejectedFileCount} 个暂不支持的文件</div> : null}
+                      </div>
+                    ) : null}
+                    {uploadProgress ? (
+                      <div className="text-xs text-muted-foreground">
+                        上传进度 {uploadProgress.completed}/{uploadProgress.total}
+                        {uploadProgress.failed > 0 ? `，失败 ${uploadProgress.failed}` : ""}
+                      </div>
+                    ) : null}
+                  </div>
                 </FormControl>
+                <FormDescription>支持 PDF、Word、Excel、PPT、文本、Markdown 和常见图片格式。</FormDescription>
               </FormItem>
             )}
 
@@ -1216,7 +1518,7 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
                     <Select value={field.value} onValueChange={field.onChange} disabled={loadingPipelines}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={loadingPipelines ? "加载中..." : "选择数据通道"} />
+                          <SelectValue placeholder={loadingPipelines ? "加载中..." : "默认视觉通道"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -1227,7 +1529,7 @@ function UploadDialog({ open, onOpenChange, onSubmit }: UploadDialogProps) {
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>选择用于数据清洗的Pipeline</FormDescription>
+                    <FormDescription>不选择时使用内置视觉通道，适合 PDF、Office、图片和扫描件。</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

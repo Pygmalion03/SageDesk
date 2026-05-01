@@ -58,6 +58,14 @@ public class DocumentAnalysisProperties {
 
     private long asyncTimeoutMs = 600000L;
 
+    private int asyncMaxConcurrentJobs = 2;
+
+    private int asyncSubmitMaxAttempts = 3;
+
+    private long asyncSubmitRetryInitialDelayMs = 3000L;
+
+    private long asyncSubmitRetryMaxDelayMs = 30000L;
+
     private String resultDownloadDir = "scripts/paddle_api_runtime";
 
     private boolean downloadRemoteImages = true;

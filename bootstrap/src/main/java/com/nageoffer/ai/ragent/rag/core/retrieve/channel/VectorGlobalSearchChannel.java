@@ -93,6 +93,12 @@ public class VectorGlobalSearchChannel implements SearchChannel {
             return true;
         }
 
+        if (properties.getChannels().getVectorGlobal().isSupplementIntentDirected()
+                && allScores.stream().anyMatch(ns -> ns.getNode() != null && ns.getNode().isKB())) {
+            log.info("KB intent detected, enable vector global search as supplementary recall");
+            return true;
+        }
+
         double maxScore = allScores.stream()
                 .mapToDouble(NodeScore::getScore)
                 .max()
@@ -105,6 +111,11 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         }
 
         return false;
+    }
+
+    @Override
+    public boolean isFallbackEnabled(SearchContext context) {
+        return properties.getChannels().getVectorGlobal().isEnabled();
     }
 
     @Override

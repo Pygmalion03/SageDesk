@@ -47,17 +47,35 @@ public class SearchContext {
     /**
      * 子问题列表
      */
-    private List<String> subQuestions;
+    @Builder.Default
+    private List<String> subQuestions = List.of();
 
     /**
      * 意图识别结果
      */
-    private List<SubQuestionIntent> intents;
+    @Builder.Default
+    private List<SubQuestionIntent> intents = List.of();
 
     /**
      * 期望返回的结果数量
      */
     private int topK;
+
+    /**
+     * Whether this query needs image or visual evidence retrieval.
+     */
+    private boolean visualRequired;
+
+    /**
+     * Image vector collections selected by intent, for example kb_policy_images.
+     */
+    @Builder.Default
+    private List<String> targetVisualCollections = List.of();
+
+    /**
+     * Human-readable reason for the visual routing decision, used by trace/debug.
+     */
+    private String visualDecisionReason;
 
     /**
      * 扩展元数据

@@ -75,7 +75,10 @@ public class VisualGlobalSearchChannel implements SearchChannel {
 
     @Override
     public boolean isEnabled(SearchContext context) {
-        return properties.getChannels().getVisualGlobal().isEnabled();
+        return properties.getChannels().getVisualGlobal().isEnabled()
+                && context != null
+                && context.isVisualRequired()
+                && (context.getTargetVisualCollections() == null || context.getTargetVisualCollections().isEmpty());
     }
 
     @Override

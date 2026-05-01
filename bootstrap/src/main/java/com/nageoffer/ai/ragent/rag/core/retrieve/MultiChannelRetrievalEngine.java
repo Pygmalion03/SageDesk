@@ -24,6 +24,7 @@ import com.nageoffer.ai.ragent.framework.trace.RagTraceNode;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannel;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannelResult;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchContext;
+import com.nageoffer.ai.ragent.rag.core.retrieve.channel.VisualQueryDecider;
 import com.nageoffer.ai.ragent.rag.core.retrieve.postprocessor.SearchResultPostProcessor;
 import com.nageoffer.ai.ragent.rag.dto.SubQuestionIntent;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,7 @@ public class MultiChannelRetrievalEngine {
 
     private final List<SearchChannel> searchChannels;
     private final List<SearchResultPostProcessor> postProcessors;
+    private final VisualQueryDecider visualQueryDecider;
     @Qualifier("ragRetrievalThreadPoolExecutor")
     private final Executor ragRetrievalExecutor;
 
@@ -68,8 +70,15 @@ public class MultiChannelRetrievalEngine {
      */
     @RagTraceNode(name = "multi-channel-retrieval", type = "RETRIEVE_CHANNEL")
     public List<RetrievedChunk> retrieveKnowledgeChannels(List<SubQuestionIntent> subIntents, int topK) {
+        return retrieveKnowledgeChannels(null, subIntents, topK);
+    }
+
+    @RagTraceNode(name = "multi-channel-retrieval", type = "RETRIEVE_CHANNEL")
+    public List<RetrievedChunk> retrieveKnowledgeChannels(String originalQuestion,
+                                                          List<SubQuestionIntent> subIntents,
+                                                          int topK) {
         // 构建检索上下文
-        SearchContext context = buildSearchContext(subIntents, topK);
+        SearchContext context = buildSearchContext(originalQuestion, subIntents, topK);
         recordRetrievalInputs(context);
 
         // 【阶段1：多通道并行检索】
@@ -85,6 +94,23 @@ public class MultiChannelRetrievalEngine {
         return executePostProcessors(channelResults, context);
     }
 
+    private List<SearchChannel> selectFallbackChannels(SearchContext context,
+                                                       List<SearchChannel> enabledChannels,
+                                                       List<SearchChannelResult> results) {
+        boolean hasAnyChunk = results.stream()
+                .anyMatch(result -> CollUtil.isNotEmpty(result.getChunks()));
+        if (hasAnyChunk) {
+            return List.of();
+        }
+
+        return searchChannels.stream()
+                .filter(channel -> channel.isFallbackEnabled(context))
+                .filter(channel -> enabledChannels.stream()
+                        .noneMatch(enabled -> Objects.equals(enabled.getName(), channel.getName())))
+                .sorted(Comparator.comparingInt(SearchChannel::getPriority))
+                .toList();
+    }
+
     /**
      * 执行所有启用的检索通道
      */
@@ -97,7 +123,6 @@ public class MultiChannelRetrievalEngine {
 
         if (enabledChannels.isEmpty()) {
             RagTraceContext.putNodeExtra("enabledChannels", List.of());
-            return List.of();
         }
 
         RagTraceContext.putNodeExtra(
@@ -147,6 +172,47 @@ public class MultiChannelRetrievalEngine {
                 .toList();
 
         // 打印详细统计信息
+        List<SearchChannel> fallbackChannels = selectFallbackChannels(context, enabledChannels, results);
+        RagTraceContext.putNodeExtra(
+                "fallbackChannels",
+                fallbackChannels.stream().map(SearchChannel::getName).toList()
+        );
+        if (CollUtil.isNotEmpty(fallbackChannels)) {
+            log.info("Initial retrieval returned no chunks, run fallback channels: {}",
+                    fallbackChannels.stream().map(SearchChannel::getName).toList());
+            List<CompletableFuture<SearchChannelResult>> fallbackFutures = fallbackChannels.stream()
+                    .map(channel -> CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    log.info("Run fallback search channel: {}", channel.getName());
+                                    return channel.search(context);
+                                } catch (Exception e) {
+                                    log.error("Fallback search channel {} failed", channel.getName(), e);
+                                    return SearchChannelResult.builder()
+                                            .channelType(channel.getType())
+                                            .channelName(channel.getName())
+                                            .chunks(List.of())
+                                            .confidence(0.0)
+                                            .build();
+                                }
+                            },
+                            ragRetrievalExecutor
+                    ))
+                    .toList();
+            List<SearchChannelResult> fallbackResults = fallbackFutures.stream()
+                    .map(future -> {
+                        try {
+                            return future.join();
+                        } catch (Exception e) {
+                            log.error("Failed to get fallback search channel result", e);
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .toList();
+            results = java.util.stream.Stream.concat(results.stream(), fallbackResults.stream()).toList();
+        }
+
         for (SearchChannelResult result : results) {
             int chunkCount = result.getChunks().size();
             totalChunks += chunkCount;
@@ -170,9 +236,9 @@ public class MultiChannelRetrievalEngine {
         }
 
         log.info("多通道检索统计 - 总通道数: {}, 有结果: {}, 无结果: {}, Chunk 总数: {}",
-                enabledChannels.size(), successCount, failureCount, totalChunks);
+                enabledChannels.size() + fallbackChannels.size(), successCount, failureCount, totalChunks);
 
-        RagTraceContext.putNodeExtra("channelCount", enabledChannels.size());
+        RagTraceContext.putNodeExtra("channelCount", enabledChannels.size() + fallbackChannels.size());
         RagTraceContext.putNodeExtra("channelSuccessCount", successCount);
         RagTraceContext.putNodeExtra("channelEmptyCount", failureCount);
         RagTraceContext.putNodeExtra("initialChunkCount", totalChunks);
@@ -245,19 +311,26 @@ public class MultiChannelRetrievalEngine {
     /**
      * 构建检索上下文
      */
-    private SearchContext buildSearchContext(List<SubQuestionIntent> subIntents, int topK) {
-        String question = CollUtil.isEmpty(subIntents) ? "" : subIntents.get(0).subQuestion();
+    private SearchContext buildSearchContext(String originalQuestion, List<SubQuestionIntent> subIntents, int topK) {
+        String rewrittenQuestion = CollUtil.isEmpty(subIntents) ? "" : subIntents.get(0).subQuestion();
+        String sourceQuestion = originalQuestion != null && !originalQuestion.isBlank()
+                ? originalQuestion
+                : rewrittenQuestion;
+        VisualQueryDecider.VisualDecision visualDecision = visualQueryDecider.decide(sourceQuestion, subIntents);
 
         return SearchContext.builder()
-                .originalQuestion(question)
-                .rewrittenQuestion(question)
+                .originalQuestion(sourceQuestion)
+                .rewrittenQuestion(rewrittenQuestion)
                 .subQuestions(
                         CollUtil.isEmpty(subIntents)
                                 ? List.of()
                                 : subIntents.stream().map(SubQuestionIntent::subQuestion).toList()
                 )
-                .intents(subIntents)
+                .intents(CollUtil.isEmpty(subIntents) ? List.of() : subIntents)
                 .topK(topK)
+                .visualRequired(visualDecision.visualRequired())
+                .targetVisualCollections(visualDecision.targetVisualCollections())
+                .visualDecisionReason(visualDecision.reason())
                 .build();
     }
 
@@ -265,6 +338,41 @@ public class MultiChannelRetrievalEngine {
         RagTraceContext.putNodeExtra("topK", context.getTopK());
         RagTraceContext.putNodeExtra("mainQuestion", context.getMainQuestion());
         RagTraceContext.putNodeExtra("subQuestions", context.getSubQuestions());
+        RagTraceContext.putNodeExtra("intentScores", summarizeIntentScores(context.getIntents()));
+        RagTraceContext.putNodeExtra("visualRequired", context.isVisualRequired());
+        RagTraceContext.putNodeExtra("targetVisualCollections", context.getTargetVisualCollections());
+        RagTraceContext.putNodeExtra("visualDecisionReason", context.getVisualDecisionReason());
+    }
+
+    private List<Map<String, Object>> summarizeIntentScores(List<SubQuestionIntent> subIntents) {
+        if (CollUtil.isEmpty(subIntents)) {
+            return List.of();
+        }
+        return subIntents.stream()
+                .filter(Objects::nonNull)
+                .flatMap(si -> {
+                    if (CollUtil.isEmpty(si.nodeScores())) {
+                        return java.util.stream.Stream.of(Map.<String, Object>of(
+                                "subQuestion", si.subQuestion(),
+                                "nodeCount", 0
+                        ));
+                    }
+                    return si.nodeScores().stream()
+                            .filter(Objects::nonNull)
+                            .map(ns -> {
+                                Map<String, Object> summary = new LinkedHashMap<>();
+                                summary.put("subQuestion", si.subQuestion());
+                                summary.put("score", ns.getScore());
+                                if (ns.getNode() != null) {
+                                    summary.put("nodeId", ns.getNode().getId());
+                                    summary.put("nodeName", ns.getNode().getName());
+                                    summary.put("kind", ns.getNode().getKind() == null ? null : ns.getNode().getKind().name());
+                                    summary.put("collectionName", ns.getNode().getCollectionName());
+                                }
+                                return summary;
+                            });
+                })
+                .toList();
     }
 
     private List<Map<String, Object>> summarizeChannelResults(List<SearchChannelResult> results) {

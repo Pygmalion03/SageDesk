@@ -49,6 +49,14 @@ public interface SearchChannel {
     boolean isEnabled(SearchContext context);
 
     /**
+     * Whether this channel may run as a second-pass fallback after the initially
+     * enabled channels return no chunks.
+     */
+    default boolean isFallbackEnabled(SearchContext context) {
+        return false;
+    }
+
+    /**
      * 执行检索
      *
      * @param context 检索上下文

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -176,7 +176,7 @@ export function IntentTreePage() {
   const selectedNode = useMemo(() => findNodeByCode(tree, selectedCode), [tree, selectedCode]);
   const treeOptions = useMemo(() => buildTreeOptions(tree), [tree]);
 
-  const loadTree = async () => {
+  const loadTree = useCallback(async () => {
     setLoading(true);
     try {
       const data = await getIntentTree();
@@ -196,21 +196,21 @@ export function IntentTreePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [focusIntentCode]);
 
-  const loadKnowledgeBases = async () => {
+  const loadKnowledgeBases = useCallback(async () => {
     try {
       const data = await getKnowledgeBases();
       setKnowledgeBases(data);
     } catch (error) {
       console.error(error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadTree();
     loadKnowledgeBases();
-  }, []);
+  }, [loadTree, loadKnowledgeBases]);
 
   useEffect(() => {
     if (!focusIntentCode) return;

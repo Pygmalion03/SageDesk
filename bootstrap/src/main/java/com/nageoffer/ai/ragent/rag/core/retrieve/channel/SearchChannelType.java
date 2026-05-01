@@ -36,6 +36,8 @@ public enum SearchChannelType {
      */
     INTENT_DIRECTED,
 
+    INTENT_DIRECTED_VISUAL,
+
     /**
      * ES 关键词检索
      * 基于 Elasticsearch 的关键词分词检索

@@ -21,7 +21,8 @@ import {
   Upload,
   Users,
   FolderKanban,
-  Workflow
+  Workflow,
+  type LucideIcon
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ import { APP_REPO_URL, APP_SHORT_NAME, APP_TAGLINE } from "@/config/app";
 type MenuChild = {
   path: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   search?: string;
 };
 
@@ -57,7 +58,7 @@ type MenuItem = {
   id?: string;
   path: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   search?: string;
   children?: MenuChild[];
 };

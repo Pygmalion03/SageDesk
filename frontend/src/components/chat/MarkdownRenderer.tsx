@@ -1,6 +1,3 @@
-// @ts-nocheck
-/* eslint-disable */
-
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -24,6 +21,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       remarkPlugins={[remarkGfm]}
       components={{
         code({ inline, className, children, node, ...props }) {
+          void node;
           const match = /language-(\w+)/.exec(className || "");
           const language = match?.[1] || "text";
           const value = String(children).replace(/\n$/, "");
@@ -73,7 +71,9 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             </div>
           );
         },
-        img({ src, alt, ...props }) {
+        img({ src, alt, node, ...props }) {
+          void node;
+          // eslint-disable-next-line react-hooks/rules-of-hooks
           const [hasError, setHasError] = React.useState(false);
 
           if (hasError) {
@@ -88,7 +88,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           return (
             <img
               src={src}
-              alt=""
+              alt={alt || ""}
               className="my-3 max-w-full rounded-lg"
               onError={() => setHasError(true)}
               loading="lazy"

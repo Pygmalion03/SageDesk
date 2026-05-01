@@ -48,6 +48,7 @@ import com.nageoffer.ai.ragent.knowledge.enums.DocumentStatus;
 import com.nageoffer.ai.ragent.knowledge.enums.ProcessMode;
 import com.nageoffer.ai.ragent.knowledge.enums.SourceType;
 import com.nageoffer.ai.ragent.framework.context.UserContext;
+import com.nageoffer.ai.ragent.framework.errorcode.BaseErrorCode;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.framework.exception.ServiceException;
 import com.nageoffer.ai.ragent.core.parser.DocumentParserSelector;
@@ -64,8 +65,10 @@ import com.nageoffer.ai.ragent.ingestion.service.IngestionPipelineService;
 import com.nageoffer.ai.ragent.ingestion.engine.IngestionEngine;
 import com.nageoffer.ai.ragent.ingestion.dao.entity.IngestionPipelineDO;
 import com.nageoffer.ai.ragent.ingestion.dao.mapper.IngestionPipelineMapper;
+import com.nageoffer.ai.ragent.ingestion.domain.context.DocumentSource;
 import com.nageoffer.ai.ragent.ingestion.domain.context.IngestionContext;
 import com.nageoffer.ai.ragent.ingestion.domain.pipeline.PipelineDefinition;
+import com.nageoffer.ai.ragent.ingestion.util.MimeTypeDetector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
@@ -176,16 +179,15 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
             chunkingMode = resolveChunkingMode(request == null ? null : request.getChunkStrategy());
             chunkConfig = buildChunkConfigJson(chunkingMode, request);
         } else if (ProcessMode.PIPELINE == processMode) {
-            // Pipeline模式：验证Pipeline ID
-            if (request == null || !StringUtils.hasText(request.getPipelineId())) {
-                throw new ClientException("使用Pipeline模式时，必须指定Pipeline ID");
+            String requestedPipelineId = request == null ? null : request.getPipelineId();
+            if (!StringUtils.hasText(requestedPipelineId)) {
+                requestedPipelineId = ingestionPipelineService.getOrCreateVisualDefaultPipelineId();
             }
-            pipelineId = Long.parseLong(request.getPipelineId());
-            // 验证Pipeline是否存在
+            pipelineId = Long.parseLong(requestedPipelineId);
             try {
-                ingestionPipelineService.get(request.getPipelineId());
+                ingestionPipelineService.get(requestedPipelineId);
             } catch (Exception e) {
-                throw new ClientException("指定的Pipeline不存在: " + request.getPipelineId());
+                throw new ClientException("指定的Pipeline不存在: " + requestedPipelineId);
             }
         }
 
@@ -286,6 +288,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         long embeddingDuration = 0;
 
         List<VectorChunk> chunkResults;
+        ChunkProcessResult chunkProcessResult = null;
 
         try {
             if (ProcessMode.PIPELINE == processMode) {
@@ -295,16 +298,20 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 chunkDuration = System.currentTimeMillis() - start;
             } else {
                 // 使用分块策略模式处理（默认）
-                ChunkProcessResult result = runChunkProcess(documentDO);
-                extractDuration = result.getExtractDuration();
-                chunkDuration = result.getChunkDuration();
-                chunkResults = result.getChunks();
+                chunkProcessResult = runChunkProcess(documentDO);
+                extractDuration = chunkProcessResult.getExtractDuration();
+                chunkDuration = chunkProcessResult.getChunkDuration();
+                chunkResults = chunkProcessResult.getChunks();
             }
 
             if (chunkResults == null) {
                 // 处理失败
+                String errorMessage = chunkProcessResult == null ? null : chunkProcessResult.getErrorMessage();
+                if (!StringUtils.hasText(errorMessage)) {
+                    errorMessage = "分块处理失败";
+                }
                 updateChunkLog(chunkLog.getId(), "failed", 0, extractDuration, chunkDuration, 0,
-                        System.currentTimeMillis() - totalStartTime, "分块处理失败");
+                        System.currentTimeMillis() - totalStartTime, errorMessage);
                 return;
             }
 
@@ -401,7 +408,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
             }
             log.error("文件分块失败：docId={}", docId, e);
             markChunkFailed(documentDO.getId());
-            return new ChunkProcessResult(null, extractDuration, chunkDuration);
+            return new ChunkProcessResult(null, extractDuration, chunkDuration, resolveErrorMessage(e));
         }
     }
 
@@ -409,11 +416,17 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         private final List<VectorChunk> chunks;
         private final long extractDuration;
         private final long chunkDuration;
+        private final String errorMessage;
 
         private ChunkProcessResult(List<VectorChunk> chunks, long extractDuration, long chunkDuration) {
+            this(chunks, extractDuration, chunkDuration, null);
+        }
+
+        private ChunkProcessResult(List<VectorChunk> chunks, long extractDuration, long chunkDuration, String errorMessage) {
             this.chunks = chunks;
             this.extractDuration = extractDuration;
             this.chunkDuration = chunkDuration;
+            this.errorMessage = errorMessage;
         }
 
         private List<VectorChunk> getChunks() {
@@ -427,6 +440,10 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         private long getChunkDuration() {
             return chunkDuration;
         }
+
+        private String getErrorMessage() {
+            return errorMessage;
+        }
     }
 
     /**
@@ -438,8 +455,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
         if (pipelineId == null) {
             log.error("Pipeline模式下Pipeline ID为空：docId={}", docId);
-            markChunkFailed(documentDO.getId());
-            return null;
+            throw new ClientException("Pipeline ID is required for pipeline processing");
         }
 
         try {
@@ -447,8 +463,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
             KnowledgeBaseDO kbDO = kbMapper.selectById(documentDO.getKbId());
             if (kbDO == null) {
                 log.error("知识库不存在：kbId={}", documentDO.getKbId());
-                markChunkFailed(documentDO.getId());
-                return null;
+                throw new ClientException("Knowledge base not found: " + documentDO.getKbId());
             }
 
             // 获取Pipeline定义
@@ -459,13 +474,19 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
             try (InputStream is = fileStorageService.openStream(documentDO.getFileUrl())) {
                 fileBytes = is.readAllBytes();
             }
+            String mimeType = MimeTypeDetector.detect(fileBytes, documentDO.getDocName());
+            if (!StringUtils.hasText(mimeType)) {
+                mimeType = documentDO.getFileType();
+            }
 
             // 构建IngestionContext，传递CollectionName
             IngestionContext context = IngestionContext.builder()
                     .taskId(docId)
                     .pipelineId(String.valueOf(pipelineId))
+                    .source(buildIngestionSource(documentDO))
                     .rawBytes(fileBytes)
-                    .mimeType(documentDO.getFileType())
+                    .mimeType(mimeType)
+                    .metadata(buildPipelineMetadata(kbDO))
                     .vectorSpaceId(VectorSpaceId.builder()
                             .logicalName(kbDO.getCollectionName())
                             .build())
@@ -476,9 +497,11 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
 
             // 检查执行结果
             if (result.getError() != null) {
-                log.error("Pipeline执行失败：docId={}, error={}", docId, result.getError().getMessage(), result.getError());
-                markChunkFailed(documentDO.getId());
-                return null;
+                throw new ServiceException(
+                        "Pipeline execution failed: " + resolveErrorMessage(result.getError()),
+                        result.getError(),
+                        BaseErrorCode.SERVICE_ERROR
+                );
             }
 
             // 返回分块结果
@@ -492,8 +515,49 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         } catch (Exception e) {
             log.error("Pipeline处理失败：docId={}", docId, e);
             markChunkFailed(documentDO.getId());
-            return null;
+            if (e instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new ServiceException("Pipeline processing failed: " + resolveErrorMessage(e));
         }
+    }
+
+    private String resolveErrorMessage(Throwable error) {
+        if (error == null) {
+            return "unknown error";
+        }
+        String message = error.getMessage();
+        if (StringUtils.hasText(message)) {
+            return message;
+        }
+        return error.getClass().getSimpleName();
+    }
+
+    private DocumentSource buildIngestionSource(KnowledgeDocumentDO documentDO) {
+        String sourceType = StringUtils.hasText(documentDO.getSourceType())
+                ? documentDO.getSourceType()
+                : SourceType.FILE.getValue();
+        com.nageoffer.ai.ragent.ingestion.domain.enums.SourceType ingestionSourceType;
+        try {
+            ingestionSourceType = com.nageoffer.ai.ragent.ingestion.domain.enums.SourceType.fromValue(sourceType);
+        } catch (IllegalArgumentException ex) {
+            ingestionSourceType = com.nageoffer.ai.ragent.ingestion.domain.enums.SourceType.FILE;
+        }
+        return DocumentSource.builder()
+                .type(ingestionSourceType)
+                .location(StringUtils.hasText(documentDO.getSourceLocation())
+                        ? documentDO.getSourceLocation()
+                        : documentDO.getFileUrl())
+                .fileName(documentDO.getDocName())
+                .build();
+    }
+
+    private Map<String, Object> buildPipelineMetadata(KnowledgeBaseDO kbDO) {
+        Map<String, Object> metadata = new HashMap<>();
+        if (kbDO != null && StringUtils.hasText(kbDO.getEmbeddingModel())) {
+            metadata.put("embeddingModel", kbDO.getEmbeddingModel());
+        }
+        return metadata;
     }
 
     public void chunkDocument(KnowledgeDocumentDO documentDO) {

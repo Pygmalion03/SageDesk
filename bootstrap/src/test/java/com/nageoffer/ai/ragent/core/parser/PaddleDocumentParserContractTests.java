@@ -35,6 +35,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.Mockito.mock;
@@ -138,9 +139,247 @@ class PaddleDocumentParserContractTests {
         Assertions.assertFalse(parser.supports("text/plain"));
     }
 
+    @Test
+    void shouldRetryOfficialAsyncSubmitAfterRateLimit() throws Exception {
+        AtomicInteger submitAttempts = new AtomicInteger();
+
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/api/v2/ocr/jobs", exchange -> {
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                int attempt = submitAttempts.incrementAndGet();
+                if (attempt == 1) {
+                    writeJson(exchange, 429, """
+                            {"error":"rate limited"}
+                            """);
+                    return;
+                }
+                writeJson(exchange, """
+                        {"data":{"jobId":"job-1"}}
+                        """);
+                return;
+            }
+            writeJson(exchange, """
+                    {
+                      "data": {
+                        "state": "done",
+                        "resultUrl": {
+                          "jsonUrl": "http://127.0.0.1:%d/result.jsonl"
+                        }
+                      }
+                    }
+                    """.formatted(server.getAddress().getPort()));
+        });
+        server.createContext("/result.jsonl", exchange -> writeText(exchange, """
+                {"result":{"layoutParsingResults":[{"pageNo":1,"markdown":{"text":"OCR retry output"}}]}}
+                """));
+        server.start();
+
+        DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
+        properties.setEnabled(true);
+        properties.setProvider("official");
+        properties.setRequestMode("async");
+        properties.setApiKey("paddle-token");
+        properties.setAsyncJobUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v2/ocr/jobs");
+        properties.setAsyncPollIntervalMs(1);
+        properties.setAsyncTimeoutMs(1000);
+        properties.setDownloadRemoteImages(false);
+
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
+
+        ParseResult result = parser.parse(
+                "image".getBytes(StandardCharsets.UTF_8),
+                "image/jpeg",
+                Map.of("retryInitialDelayMs", 1, "retryMaxAttempts", 2)
+        );
+
+        Assertions.assertEquals(2, submitAttempts.get());
+        Assertions.assertEquals("OCR retry output", result.text());
+    }
+
+    @Test
+    void shouldPreferMarkdownImageOverLayoutDebugImage() throws Exception {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/api/v2/ocr/jobs", exchange -> {
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, """
+                        {"data":{"jobId":"job-1"}}
+                        """);
+                return;
+            }
+            writeJson(exchange, """
+                    {
+                      "data": {
+                        "state": "done",
+                        "resultUrl": {
+                          "jsonUrl": "http://127.0.0.1:%d/result.jsonl"
+                        }
+                      }
+                    }
+                    """.formatted(server.getAddress().getPort()));
+        });
+        server.createContext("/result.jsonl", exchange -> writeText(exchange, """
+                {"result":{"layoutParsingResults":[{"pageNo":1,"markdown":{"text":"Product page","images":{"imgs/img_in_image_box_1.jpg":"https://example.com/crop.jpg"}},"outputImages":{"layout_det_res.jpg":"https://example.com/layout_det_res.jpg"}}]}}
+                """));
+        server.start();
+
+        DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
+        properties.setEnabled(true);
+        properties.setProvider("official");
+        properties.setRequestMode("async");
+        properties.setApiKey("paddle-token");
+        properties.setAsyncJobUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v2/ocr/jobs");
+        properties.setAsyncPollIntervalMs(1);
+        properties.setAsyncTimeoutMs(1000);
+        properties.setDownloadRemoteImages(false);
+
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
+
+        ParseResult result = parser.parse(
+                "image".getBytes(StandardCharsets.UTF_8),
+                "image/jpeg",
+                Map.of()
+        );
+
+        Assertions.assertEquals("https://example.com/crop.jpg",
+                result.document().getVisualBlocks().get(0).getImageUri());
+    }
+
+    @Test
+    void shouldPreferPageOutputImageOverMarkdownCrop() throws Exception {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/api/v2/ocr/jobs", exchange -> {
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, """
+                        {"data":{"jobId":"job-1"}}
+                        """);
+                return;
+            }
+            writeJson(exchange, """
+                    {
+                      "data": {
+                        "state": "done",
+                        "resultUrl": {
+                          "jsonUrl": "http://127.0.0.1:%d/result.jsonl"
+                        }
+                      }
+                    }
+                    """.formatted(server.getAddress().getPort()));
+        });
+        server.createContext("/result.jsonl", exchange -> writeText(exchange, """
+                {"result":{"layoutParsingResults":[{"pageNo":18,"markdown":{"text":"Technical Specifications","images":{"imgs/img_in_image_box_340_483_1176_1815.jpg":"https://example.com/crop.jpg"}},"outputImages":{"page_18.jpg":"https://example.com/page.jpg","layout_det_res.jpg":"https://example.com/layout.jpg"}}]}}
+                """));
+        server.start();
+
+        DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
+        properties.setEnabled(true);
+        properties.setProvider("official");
+        properties.setRequestMode("async");
+        properties.setApiKey("paddle-token");
+        properties.setAsyncJobUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v2/ocr/jobs");
+        properties.setAsyncPollIntervalMs(1);
+        properties.setAsyncTimeoutMs(1000);
+        properties.setDownloadRemoteImages(false);
+
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
+
+        ParseResult result = parser.parse(
+                "image".getBytes(StandardCharsets.UTF_8),
+                "image/jpeg",
+                Map.of()
+        );
+
+        Assertions.assertEquals("https://example.com/page.jpg",
+                result.document().getVisualBlocks().get(0).getImageUri());
+    }
+
+    @Test
+    void shouldUseLargestMarkdownImageAsPagePreview() throws Exception {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/api/v2/ocr/jobs", exchange -> {
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, """
+                        {"data":{"jobId":"job-1"}}
+                        """);
+                return;
+            }
+            writeJson(exchange, """
+                    {
+                      "data": {
+                        "state": "done",
+                        "resultUrl": {
+                          "jsonUrl": "http://127.0.0.1:%d/result.jsonl"
+                        }
+                      }
+                    }
+                    """.formatted(server.getAddress().getPort()));
+        });
+        server.createContext("/result.jsonl", exchange -> writeText(exchange, """
+                {"result":{"layoutParsingResults":[{"pageNo":1,"markdown":{"text":"Product page","images":{"imgs/img_in_image_box_151_164_214_246.jpg":"https://example.com/logo.jpg","imgs/img_in_image_box_340_483_1176_1815.jpg":"https://example.com/product.jpg"}}}]}}
+                """));
+        server.start();
+
+        DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
+        properties.setEnabled(true);
+        properties.setProvider("official");
+        properties.setRequestMode("async");
+        properties.setApiKey("paddle-token");
+        properties.setAsyncJobUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v2/ocr/jobs");
+        properties.setAsyncPollIntervalMs(1);
+        properties.setAsyncTimeoutMs(1000);
+        properties.setDownloadRemoteImages(false);
+
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
+
+        ParseResult result = parser.parse(
+                "image".getBytes(StandardCharsets.UTF_8),
+                "image/jpeg",
+                Map.of()
+        );
+
+        Assertions.assertEquals("https://example.com/product.jpg",
+                result.document().getVisualBlocks().get(0).getImageUri());
+    }
+
     private void writeJson(HttpExchange exchange, String body) throws IOException {
+        writeJson(exchange, 200, body);
+    }
+
+    private void writeJson(HttpExchange exchange, int status, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(status, bytes.length);
+        try (OutputStream outputStream = exchange.getResponseBody()) {
+            outputStream.write(bytes);
+        }
+    }
+
+    private void writeText(HttpExchange exchange, String body) throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "text/plain");
         exchange.sendResponseHeaders(200, bytes.length);
         try (OutputStream outputStream = exchange.getResponseBody()) {
             outputStream.write(bytes);

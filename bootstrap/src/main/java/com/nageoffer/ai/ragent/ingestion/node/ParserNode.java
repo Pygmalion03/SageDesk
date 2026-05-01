@@ -108,7 +108,7 @@ public class ParserNode implements IngestionNode {
         try {
             result = parser.parse(context.getRawBytes(), mimeType, options);
         } catch (Exception ex) {
-            if (shouldFallbackToTika(parserType)) {
+            if (shouldFallbackToTika(parserType, mimeType, fileName)) {
                 DocumentParser tikaParser = parserSelector.select(ParserType.TIKA.getType());
                 if (tikaParser == null) {
                     return NodeResult.fail(new ClientException("Paddle parse failed and Tika fallback is unavailable: " + ex.getMessage()));
@@ -320,9 +320,10 @@ public class ParserNode implements IngestionNode {
         return raw;
     }
 
-    private boolean shouldFallbackToTika(String parserType) {
+    private boolean shouldFallbackToTika(String parserType, String mimeType, String fileName) {
         return ParserType.PADDLE_DOCUMENT_ANALYSIS.getType().equalsIgnoreCase(parserType)
-                && documentAnalysisProperties.isFallbackToTikaOnError();
+                && documentAnalysisProperties.isFallbackToTikaOnError()
+                && !"IMAGE".equalsIgnoreCase(resolveType(mimeType, fileName));
     }
 
     private Map<String, Object> mergeMetadata(Map<String, Object> existing, Map<String, Object> parsed) {
