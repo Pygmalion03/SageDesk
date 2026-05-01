@@ -34,6 +34,10 @@ RUNTIME_DIR = Path(__file__).resolve().parent / "paddle_bridge_runtime"
 INPUT_DIR = RUNTIME_DIR / "inputs"
 PAGE_DIR = RUNTIME_DIR / "pages"
 CROP_DIR = RUNTIME_DIR / "crops"
+PADDLEOCR_VL_MODE = "paddleocr_vl_1_5"
+PP_STRUCTURE_MODE = "pp_structure_v3"
+DEFAULT_VL_PIPELINE = "PaddleOCR-VL"
+DEFAULT_VL_MODEL = "PaddleOCR-VL-1.5-0.9B"
 
 
 def ensure_dirs() -> None:
@@ -43,16 +47,43 @@ def ensure_dirs() -> None:
 
 def normalize_mode(mode: str | None) -> str:
     if not mode:
-        return "pp_structure_v3"
-    value = mode.strip().lower()
+        return PADDLEOCR_VL_MODE
+    value = mode.strip().lower().replace("_", "-")
     aliases = {
-        "pp_structure_v3": "pp_structure_v3",
-        "pp-structurev3": "pp_structure_v3",
-        "paddleocr_vl_1_5": "pp_structure_v3",
-        "paddleocr-vl-1.5": "pp_structure_v3",
-        "paddleocr_vl": "pp_structure_v3",
+        "pp-structure-v3": PP_STRUCTURE_MODE,
+        "pp-structurev3": PP_STRUCTURE_MODE,
+        "ppstructurev3": PP_STRUCTURE_MODE,
+        "paddleocr-vl": PADDLEOCR_VL_MODE,
+        "paddleocr-vl-1-5": PADDLEOCR_VL_MODE,
+        "paddleocr-vl-1-5-0-9b": PADDLEOCR_VL_MODE,
+        "paddleocr-vl-1.5": PADDLEOCR_VL_MODE,
+        "paddleocr-vl-1.5-0.9b": PADDLEOCR_VL_MODE,
+        "paddleocrvl-1-5": PADDLEOCR_VL_MODE,
+        "paddleocrvl-1-5-0-9b": PADDLEOCR_VL_MODE,
+        "paddleocrvl-1.5": PADDLEOCR_VL_MODE,
+        "paddleocrvl-1.5-0.9b": PADDLEOCR_VL_MODE,
     }
-    return aliases.get(value, "pp_structure_v3")
+    return aliases.get(value, PP_STRUCTURE_MODE)
+
+
+def resolve_model_name(payload: dict[str, Any], mode: str) -> str | None:
+    model_name = str(payload.get("model") or "").strip()
+    if model_name:
+        return model_name
+    env_model = os.getenv("PADDLE_MODEL", "").strip()
+    if env_model:
+        return env_model
+    if mode == PADDLEOCR_VL_MODE:
+        return DEFAULT_VL_MODEL
+    return None
+
+
+def resolve_pipeline_modes(payload: dict[str, Any], primary_mode: str) -> list[str]:
+    modes = [normalize_mode(primary_mode)]
+    fallback_mode = normalize_mode(str(payload.get("fallbackMode") or os.getenv("PADDLE_FALLBACK_MODE", "")).strip())
+    if fallback_mode not in modes:
+        modes.append(fallback_mode)
+    return modes
 
 
 def mime_to_suffix(mime_type: str) -> str:
@@ -160,6 +191,7 @@ class LocalPaddleBridge:
         input_path = self._write_input(file_bytes, mime_type)
         requested_mode = str(payload.get("mode") or "")
         normalized_mode = normalize_mode(requested_mode)
+        model_name = resolve_model_name(payload, normalized_mode)
         options = payload.get("options") or {}
 
         page_inputs = self._prepare_page_inputs(input_path, mime_type)
@@ -167,12 +199,19 @@ class LocalPaddleBridge:
         pipeline_error: Exception | None = None
         engine_name = normalized_mode
 
-        try:
-            pipeline = self._get_pipeline(normalized_mode)
-        except Exception as exc:  # pragma: no cover - integration path
-            pipeline_error = exc
+        for pipeline_mode in resolve_pipeline_modes(payload, normalized_mode):
+            try:
+                selected_model = model_name if pipeline_mode == PADDLEOCR_VL_MODE else None
+                pipeline = self._get_pipeline(pipeline_mode, selected_model)
+                engine_name = pipeline_mode
+                break
+            except Exception as exc:  # pragma: no cover - integration path
+                pipeline_error = exc
+                LOGGER.warning("failed to initialize %s pipeline: %s", pipeline_mode, exc)
+
+        if pipeline is None:
             engine_name = "pdf_page_fallback"
-            LOGGER.warning("failed to initialize %s pipeline, falling back to page rendering: %s", normalized_mode, exc)
+            LOGGER.warning("all paddle pipelines failed, falling back to page rendering")
 
         markdown_pages: list[str] = []
         visual_blocks: list[dict[str, Any]] = []
@@ -208,6 +247,7 @@ class LocalPaddleBridge:
                 "requestedMode": requested_mode or normalized_mode,
                 "fallbackApplied": engine_name != normalized_mode,
                 "fallbackReason": str(pipeline_error) if pipeline_error else None,
+                "model": model_name,
                 "pageCount": len(page_inputs),
                 "sourcePath": str(input_path),
             },
@@ -218,13 +258,48 @@ class LocalPaddleBridge:
             "document": document,
         }
 
-    def _get_pipeline(self, mode: str) -> Any:
+    def _get_pipeline(self, mode: str, model_name: str | None = None) -> Any:
         if create_pipeline is None:
             raise RuntimeError("paddlex is not installed. Run `pip install -r scripts/paddle_bridge_requirements.txt` first.")
-        if mode not in self._pipelines:
-            LOGGER.info("initializing paddle pipeline: %s", mode)
-            self._pipelines[mode] = create_pipeline(pipeline="PP-StructureV3")
-        return self._pipelines[mode]
+        normalized_mode = normalize_mode(mode)
+        pipeline_kwargs = self._pipeline_kwargs(normalized_mode, model_name)
+        cache_key = json.dumps(pipeline_kwargs, sort_keys=True)
+        if cache_key not in self._pipelines:
+            LOGGER.info("initializing paddle pipeline: %s", pipeline_kwargs)
+            self._pipelines[cache_key] = create_pipeline(**pipeline_kwargs)
+        return self._pipelines[cache_key]
+
+    def _pipeline_kwargs(self, mode: str, model_name: str | None) -> dict[str, Any]:
+        kwargs: dict[str, Any]
+        if mode == PADDLEOCR_VL_MODE:
+            kwargs = {"pipeline": DEFAULT_VL_PIPELINE}
+            if model_name:
+                kwargs["vl_rec_model_name"] = model_name
+            self._add_env_option(kwargs, "device", "PADDLE_BRIDGE_DEVICE", "PADDLE_DEVICE")
+            self._add_env_option(kwargs, "vl_rec_backend", "PADDLE_VL_REC_BACKEND")
+            self._add_env_option(kwargs, "vl_rec_server_url", "PADDLE_VL_REC_SERVER_URL")
+            self._add_env_int_option(kwargs, "vl_rec_max_concurrency", "PADDLE_VL_REC_MAX_CONCURRENCY")
+            return kwargs
+
+        kwargs = {"pipeline": "PP-StructureV3"}
+        self._add_env_option(kwargs, "device", "PADDLE_BRIDGE_DEVICE", "PADDLE_DEVICE")
+        return kwargs
+
+    def _add_env_option(self, kwargs: dict[str, Any], key: str, *env_names: str) -> None:
+        for env_name in env_names:
+            value = os.getenv(env_name, "").strip()
+            if value:
+                kwargs[key] = value
+                return
+
+    def _add_env_int_option(self, kwargs: dict[str, Any], key: str, env_name: str) -> None:
+        value = os.getenv(env_name, "").strip()
+        if not value:
+            return
+        try:
+            kwargs[key] = int(value)
+        except ValueError:
+            LOGGER.warning("ignore invalid integer env %s=%s", env_name, value)
 
     def _write_input(self, file_bytes: bytes, mime_type: str) -> Path:
         suffix = mime_to_suffix(mime_type)

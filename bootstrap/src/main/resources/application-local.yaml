@@ -17,6 +17,8 @@ rag:
     sync-url: ${PADDLE_SYNC_URL:https://z9y7xan5l6yevav5.aistudio-app.com/layout-parsing}
     async-job-url: ${PADDLE_ASYNC_JOB_URL:https://paddleocr.aistudio-app.com/api/v2/ocr/jobs}
     model: ${PADDLE_MODEL:PaddleOCR-VL-1.5-0.9B}
+    default-mode: ${PADDLE_DEFAULT_MODE:paddleocr_vl_1_5}
+    fallback-mode: ${PADDLE_FALLBACK_MODE:pp_structure_v3}
     async-poll-interval-ms: ${PADDLE_ASYNC_POLL_INTERVAL_MS:5000}
     async-timeout-ms: ${PADDLE_ASYNC_TIMEOUT_MS:600000}
     async-max-concurrent-jobs: ${PADDLE_ASYNC_MAX_CONCURRENT_JOBS:2}

@@ -92,6 +92,7 @@ class PaddleDocumentParserContractTests {
         properties.setApiKey("bridge-token");
         properties.setDefaultMode("pp_structure_v3");
         properties.setFallbackMode("paddleocr_vl_1_5");
+        properties.setModel("PaddleOCR-VL-1.5-0.9B");
 
         PaddleDocumentParser parser = new PaddleDocumentParser(
                 new OkHttpClient(),
@@ -109,6 +110,7 @@ class PaddleDocumentParserContractTests {
         Assertions.assertEquals("application/pdf", requestBodyRef.get().path("mimeType").asText());
         Assertions.assertEquals("pp_structure_v3", requestBodyRef.get().path("mode").asText());
         Assertions.assertEquals("paddleocr_vl_1_5", requestBodyRef.get().path("fallbackMode").asText());
+        Assertions.assertEquals("PaddleOCR-VL-1.5-0.9B", requestBodyRef.get().path("model").asText());
         Assertions.assertEquals(Base64.getEncoder().encodeToString(content),
                 requestBodyRef.get().path("contentBase64").asText());
         Assertions.assertEquals(3, requestBodyRef.get().path("options").path("pageLimit").asInt());

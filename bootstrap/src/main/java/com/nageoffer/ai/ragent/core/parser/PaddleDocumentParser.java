@@ -119,6 +119,7 @@ public class PaddleDocumentParser implements DocumentParser {
         requestPayload.put("contentBase64", Base64.getEncoder().encodeToString(content));
         requestPayload.put("mode", resolveOption(options, "mode", properties.getDefaultMode()));
         requestPayload.put("fallbackMode", resolveOption(options, "fallbackMode", properties.getFallbackMode()));
+        requestPayload.put("model", resolveOption(options, "model", properties.getModel()));
         requestPayload.put("options", options == null ? Map.of() : options);
 
         Request.Builder builder = new Request.Builder()

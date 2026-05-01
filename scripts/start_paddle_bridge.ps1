@@ -25,6 +25,18 @@ if (-not $env:PADDLE_BRIDGE_HOST) {
 if (-not $env:PADDLE_BRIDGE_PORT) {
     $env:PADDLE_BRIDGE_PORT = [string]$Port
 }
+if (-not $env:PADDLE_MODEL) {
+    $env:PADDLE_MODEL = "PaddleOCR-VL-1.5-0.9B"
+}
+if (-not $env:PADDLE_DEFAULT_MODE) {
+    $env:PADDLE_DEFAULT_MODE = "paddleocr_vl_1_5"
+}
+if (-not $env:PADDLE_FALLBACK_MODE) {
+    $env:PADDLE_FALLBACK_MODE = "pp_structure_v3"
+}
+if (-not $env:PADDLE_BRIDGE_DEVICE) {
+    $env:PADDLE_BRIDGE_DEVICE = "gpu:0"
+}
 if (-not $env:PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK) {
     $env:PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK = "True"
 }

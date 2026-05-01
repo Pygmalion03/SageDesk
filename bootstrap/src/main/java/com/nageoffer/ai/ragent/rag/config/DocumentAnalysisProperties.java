@@ -46,13 +46,13 @@ public class DocumentAnalysisProperties {
 
     private String asyncJobUrl = "https://paddleocr.aistudio-app.com/api/v2/ocr/jobs";
 
-    private String model = "PaddleOCR-VL-1.5";
+    private String model = "PaddleOCR-VL-1.5-0.9B";
 
     private String apiKey;
 
-    private String defaultMode = "pp_structure_v3";
+    private String defaultMode = "paddleocr_vl_1_5";
 
-    private String fallbackMode = "paddleocr_vl_1_5";
+    private String fallbackMode = "pp_structure_v3";
 
     private long asyncPollIntervalMs = 5000L;
 
