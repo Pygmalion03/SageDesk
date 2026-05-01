@@ -202,7 +202,7 @@ public class IngestionPipelineServiceImpl implements IngestionPipelineService {
                         "strategy", "structure_aware",
                         "chunkSize", 800,
                         "overlapSize", 120,
-                        "visualEmbeddingModel", "qwen3-vl-embedding-1024",
+                        "visualEmbeddingModel", "qwen3-vl-embedding-2b-local",
                         "visualMaxLength", 2000
                 )), "indexer"),
                 node("indexer", IngestionNodeType.INDEXER.getValue(), objectMapper.valueToTree(Map.of(

@@ -44,6 +44,11 @@ public enum ModelProvider {
     SILICON_FLOW("siliconflow"),
 
     /**
+     * 本地视觉向量服务
+     */
+    LOCAL_VL("local-vl"),
+
+    /**
      * 空实现，用于测试或占位
      */
     NOOP("noop");

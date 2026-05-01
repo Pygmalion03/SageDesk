@@ -38,7 +38,7 @@ milvus:
 rag:
   default:
     collection-name: rag_default_store
-    dimension: 4096
+    dimension: 1024
     image-dimension: 1024
     image-collection-suffix: _images
     visual-answer-model: qwen3-vl-8b-thinking
@@ -46,13 +46,30 @@ rag:
     metric-type: COSINE
 
   document-analysis:
-    enabled: false
+    enabled: true
     auto-detect: true
     fallback-to-tika-on-error: true
-    base-url: http://localhost:8099
-    endpoint: /v1/document-analysis
+    provider: ${PADDLE_PROVIDER:bridge}
+    request-mode: ${PADDLE_REQUEST_MODE:sync}
+    api-key: ${PADDLE_API_KEY:}
+    base-url: ${PADDLE_BRIDGE_BASE_URL:http://127.0.0.1:8099}
+    endpoint: ${PADDLE_BRIDGE_ENDPOINT:/v1/document-analysis}
+    sync-url: ${PADDLE_SYNC_URL:https://z9y7xan5l6yevav5.aistudio-app.com/layout-parsing}
+    async-job-url: ${PADDLE_ASYNC_JOB_URL:https://paddleocr.aistudio-app.com/api/v2/ocr/jobs}
+    model: ${PADDLE_MODEL:PaddleOCR-VL-1.5-0.9B}
     default-mode: pp_structure_v3
     fallback-mode: paddleocr_vl_1_5
+    async-poll-interval-ms: ${PADDLE_ASYNC_POLL_INTERVAL_MS:5000}
+    async-timeout-ms: ${PADDLE_ASYNC_TIMEOUT_MS:600000}
+    async-max-concurrent-jobs: ${PADDLE_ASYNC_MAX_CONCURRENT_JOBS:2}
+    async-submit-max-attempts: ${PADDLE_ASYNC_SUBMIT_MAX_ATTEMPTS:3}
+    async-submit-retry-initial-delay-ms: ${PADDLE_ASYNC_SUBMIT_RETRY_INITIAL_DELAY_MS:3000}
+    async-submit-retry-max-delay-ms: ${PADDLE_ASYNC_SUBMIT_RETRY_MAX_DELAY_MS:30000}
+    result-download-dir: ${PADDLE_RESULT_DOWNLOAD_DIR:scripts/paddle_api_runtime}
+    download-remote-images: ${PADDLE_DOWNLOAD_REMOTE_IMAGES:true}
+    use-doc-orientation-classify: ${PADDLE_USE_DOC_ORIENTATION_CLASSIFY:false}
+    use-doc-unwarping: ${PADDLE_USE_DOC_UNWARPING:false}
+    use-chart-recognition: ${PADDLE_USE_CHART_RECOGNITION:false}
     auto-mime-types:
       - PDF
       - IMAGE
@@ -97,14 +114,14 @@ rag:
         supplement-intent-directed: true
         top-k-multiplier: 3
       visual-global:
-        enabled: false
+        enabled: true
         top-k-multiplier: 2
-        embedding-model: qwen3-vl-embedding-1024
-        rerank-model: qwen3-vl-rerank
+        embedding-model: qwen3-vl-embedding-2b-local
+        rerank-model: rerank-noop
       intent-directed-visual:
         enabled: true
         top-k-multiplier: 2
-        embedding-model: qwen3-vl-embedding-1024
+        embedding-model: qwen3-vl-embedding-2b-local
       intent-directed:
         min-intent-score: 0.4
         top-k-multiplier: 2
@@ -116,10 +133,15 @@ rag:
 ai:
   providers:
     ollama:
-      url: http://localhost:11434
+      url: ${OLLAMA_BASE_URL:http://localhost:11434}
       endpoints:
         chat: /api/chat
         embedding: /api/embed
+    local-vl:
+      url: ${LOCAL_VL_EMBEDDING_URL:http://127.0.0.1:8115}
+      api-key: ${LOCAL_VL_EMBEDDING_API_KEY:}
+      endpoints:
+        embedding: ${LOCAL_VL_EMBEDDING_ENDPOINT:/v1/embeddings}
     bailian:
       url: https://dashscope.aliyuncs.com
       api-key: ${BAILIAN_API_KEY:}
@@ -142,60 +164,74 @@ ai:
     message-chunk-size: 1
 
   chat:
-    default-model: qwen3-max
-    deep-thinking-model: qwen3-max
+    default-model: qwen3-local-fast
+    deep-thinking-model: qwen3-local
     candidates:
       - id: qwen-plus
         provider: bailian
         model: qwen-plus-latest
-        priority: 1
+        priority: 20
       - id: qwen3-max
         provider: bailian
         model: qwen3-max
         supports-thinking: true
-        priority: 3
+        priority: 30
       - id: qwen3-vl-8b-thinking
         provider: bailian
         model: qwen3-vl-8b-thinking
         supports-thinking: true
         supports-multimodal: true
-        priority: 2
+        priority: 31
       - id: glm-4.7
         provider: siliconflow
         model: Pro/zai-org/GLM-4.7
         supports-thinking: true
-        priority: 0
+        priority: 40
       - id: qwen3-local
         provider: ollama
-        model: qwen3:8b
-        priority: 2
+        model: ${QWEN_CHAT_QUALITY_MODEL:qwen3:8b}
+        supports-thinking: true
+        priority: 1
       - id: qwen3-local-fast
         provider: ollama
-        model: qwen3:4b
-        priority: 1
+        model: ${QWEN_CHAT_FAST_MODEL:qwen3:4b}
+        supports-thinking: true
+        priority: 0
 
   embedding:
-    default-model: qwen-emb-8b
+    default-model: qwen-emb-local-small
     candidates:
+      - id: qwen-emb-local-small
+        provider: ollama
+        model: ${QWEN_TEXT_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+        dimension: 1024
+        priority: 0
+      - id: qwen3-vl-embedding-2b-local
+        provider: local-vl
+        model: ${QWEN_VL_EMBEDDING_MODEL:Qwen/Qwen3-VL-Embedding-2B}
+        dimension: 1024
+        priority: 1
       - id: qwen3-vl-embedding-1024
         provider: bailian
         model: qwen3-vl-embedding
         url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding
         dimension: 1024
-        priority: 0
+        priority: 20
       - id: qwen-emb-8b
         provider: siliconflow
         model: Qwen/Qwen3-Embedding-8B
         dimension: 4096
-        priority: 1
+        priority: 30
+        enabled: ${ENABLE_QWEN_EMB_8B:false}
       - id: qwen-emb-local
         provider: ollama
         model: qwen3-embedding:8b-fp16
         dimension: 4096
-        priority: 2
+        priority: 40
+        enabled: ${ENABLE_QWEN_EMB_LOCAL_8B:false}
 
   rerank:
-    default-model: qwen3-rerank
+    default-model: rerank-noop
     candidates:
       - id: qwen3-vl-rerank
         provider: bailian

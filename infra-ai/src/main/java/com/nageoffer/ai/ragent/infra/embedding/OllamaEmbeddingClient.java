@@ -18,10 +18,11 @@
 package com.nageoffer.ai.ragent.infra.embedding;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.nageoffer.ai.ragent.infra.config.AIModelProperties;
-import com.nageoffer.ai.ragent.infra.enums.ModelProvider;
 import com.nageoffer.ai.ragent.infra.enums.ModelCapability;
+import com.nageoffer.ai.ragent.infra.enums.ModelProvider;
 import com.nageoffer.ai.ragent.infra.http.HttpMediaTypes;
 import com.nageoffer.ai.ragent.infra.http.ModelClientErrorType;
 import com.nageoffer.ai.ragent.infra.http.ModelClientException;
@@ -56,57 +57,77 @@ public class OllamaEmbeddingClient implements EmbeddingClient {
 
     @Override
     public List<Float> embed(String text, ModelTarget target) {
+        return embedBatch(java.util.Collections.singletonList(text), target).get(0);
+    }
+
+    @Override
+    public List<List<Float>> embedBatch(List<String> texts, ModelTarget target) {
+        if (texts == null || texts.isEmpty()) {
+            return List.of();
+        }
+
         AIModelProperties.ProviderConfig provider = requireProvider(target);
         String url = resolveUrl(provider, target);
 
         JsonObject body = new JsonObject();
         body.addProperty("model", requireModel(target));
-        body.addProperty("input", text);
+        body.add("input", gson.toJsonTree(texts));
 
+        JsonObject json = executeRequest(url, body);
+        return readVectors(json, texts.size());
+    }
+
+    private JsonObject executeRequest(String url, JsonObject body) {
         Request request = new Request.Builder()
                 .url(url)
                 .post(RequestBody.create(body.toString(), HttpMediaTypes.JSON))
                 .addHeader("Content-Type", HttpMediaTypes.JSON_UTF8_HEADER)
                 .build();
 
-        JsonObject json;
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String errBody = readBody(response.body());
-                log.warn("Ollama embedding 请求失败: status={}, body={}", response.code(), errBody);
+                log.warn("Ollama embedding request failed: status={}, body={}", response.code(), errBody);
                 throw new ModelClientException(
-                        "Ollama embedding 请求失败: HTTP " + response.code(),
+                        "Ollama embedding request failed: HTTP " + response.code(),
                         classifyStatus(response.code()),
                         response.code()
                 );
             }
-            json = parseJsonBody(response.body());
+            return parseJsonBody(response.body());
         } catch (IOException e) {
-            throw new ModelClientException("Ollama embedding 请求失败: " + e.getMessage(), ModelClientErrorType.NETWORK_ERROR, null, e);
+            throw new ModelClientException(
+                    "Ollama embedding request failed: " + e.getMessage(),
+                    ModelClientErrorType.NETWORK_ERROR,
+                    null,
+                    e
+            );
         }
-
-        var embeddings = json.getAsJsonArray("embeddings");
-
-        if (embeddings == null || embeddings.isEmpty()) {
-            throw new ModelClientException("Ollama embeddings 为空", ModelClientErrorType.INVALID_RESPONSE, null);
-        }
-
-        var first = embeddings.get(0).getAsJsonArray();
-        if (first == null || first.isEmpty()) {
-            throw new ModelClientException("Ollama embeddings 返回为空数组", ModelClientErrorType.INVALID_RESPONSE, null);
-        }
-
-        List<Float> vector = new ArrayList<>();
-        first.forEach(v -> vector.add(v.getAsFloat()));
-
-        return vector;
     }
 
-    @Override
-    public List<List<Float>> embedBatch(List<String> texts, ModelTarget target) {
-        List<List<Float>> vectors = new ArrayList<>(texts.size());
-        for (String text : texts) {
-            vectors.add(embed(text, target));
+    private List<List<Float>> readVectors(JsonObject json, int expectedSize) {
+        JsonArray embeddings = json.getAsJsonArray("embeddings");
+        if (embeddings == null || embeddings.isEmpty()) {
+            throw new ModelClientException("Ollama embeddings are empty", ModelClientErrorType.INVALID_RESPONSE, null);
+        }
+
+        List<List<Float>> vectors = new ArrayList<>(embeddings.size());
+        for (var element : embeddings) {
+            JsonArray row = element.getAsJsonArray();
+            if (row == null || row.isEmpty()) {
+                throw new ModelClientException("Ollama embedding row is empty", ModelClientErrorType.INVALID_RESPONSE, null);
+            }
+            List<Float> vector = new ArrayList<>(row.size());
+            row.forEach(v -> vector.add(v.getAsFloat()));
+            vectors.add(vector);
+        }
+
+        if (vectors.size() != expectedSize) {
+            throw new ModelClientException(
+                    "Ollama embedding response size mismatch: expected=" + expectedSize + ", actual=" + vectors.size(),
+                    ModelClientErrorType.INVALID_RESPONSE,
+                    null
+            );
         }
         return vectors;
     }
@@ -131,7 +152,7 @@ public class OllamaEmbeddingClient implements EmbeddingClient {
 
     private JsonObject parseJsonBody(ResponseBody body) throws IOException {
         if (body == null) {
-            throw new ModelClientException("Ollama embedding 响应为空", ModelClientErrorType.INVALID_RESPONSE, null);
+            throw new ModelClientException("Ollama embedding response is empty", ModelClientErrorType.INVALID_RESPONSE, null);
         }
         String content = body.string();
         return gson.fromJson(content, JsonObject.class);

@@ -69,7 +69,7 @@ public class SearchChannelProperties {
 
         private int topKMultiplier = 2;
 
-        private String embeddingModel = "qwen3-vl-embedding-1024";
+        private String embeddingModel = "qwen3-vl-embedding-2b-local";
     }
 
     @Data
@@ -79,8 +79,8 @@ public class SearchChannelProperties {
 
         private int topKMultiplier = 2;
 
-        private String embeddingModel = "qwen3-vl-embedding-1024";
+        private String embeddingModel = "qwen3-vl-embedding-2b-local";
 
-        private String rerankModel = "qwen3-vl-rerank";
+        private String rerankModel = "rerank-noop";
     }
 }

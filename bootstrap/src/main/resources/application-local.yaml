@@ -6,16 +6,17 @@ spring:
 rag:
   default:
     dimension: 1024
+    image-dimension: 1024
   document-analysis:
     enabled: true
     auto-detect: true
     fallback-to-tika-on-error: true
-    provider: ${PADDLE_PROVIDER:official}
-    request-mode: ${PADDLE_REQUEST_MODE:async}
+    provider: ${PADDLE_PROVIDER:bridge}
+    request-mode: ${PADDLE_REQUEST_MODE:sync}
     api-key: ${PADDLE_API_KEY:}
     sync-url: ${PADDLE_SYNC_URL:https://z9y7xan5l6yevav5.aistudio-app.com/layout-parsing}
     async-job-url: ${PADDLE_ASYNC_JOB_URL:https://paddleocr.aistudio-app.com/api/v2/ocr/jobs}
-    model: ${PADDLE_MODEL:PaddleOCR-VL-1.5}
+    model: ${PADDLE_MODEL:PaddleOCR-VL-1.5-0.9B}
     async-poll-interval-ms: ${PADDLE_ASYNC_POLL_INTERVAL_MS:5000}
     async-timeout-ms: ${PADDLE_ASYNC_TIMEOUT_MS:600000}
     async-max-concurrent-jobs: ${PADDLE_ASYNC_MAX_CONCURRENT_JOBS:2}
@@ -33,7 +34,18 @@ rag:
     channels:
       visual-global:
         enabled: true
+        embedding-model: qwen3-vl-embedding-2b-local
+        rerank-model: rerank-noop
+      intent-directed-visual:
+        embedding-model: qwen3-vl-embedding-2b-local
 
 ai:
+  chat:
+    default-model: qwen3-local-fast
+    deep-thinking-model: qwen3-local
+
   embedding:
-    default-model: qwen3-vl-embedding-1024
+    default-model: qwen-emb-local-small
+
+  rerank:
+    default-model: rerank-noop
