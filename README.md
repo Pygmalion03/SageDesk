@@ -148,6 +148,20 @@ $env:PADDLE_REQUEST_MODE="async"
 $env:PADDLE_RESULT_DOWNLOAD_DIR="scripts/paddle_api_runtime"
 ```
 
+Start local Hugging Face retrieval bridges:
+
+```powershell
+.\scripts\start_hf_embedding_bridge.ps1
+.\scripts\start_qwen_vl_embedding_bridge.ps1
+.\scripts\start_hf_rerank_bridge.ps1
+```
+
+Or start all local AI bridge processes, including Paddle document analysis:
+
+```powershell
+.\scripts\start_local_ai_bridges.ps1
+```
+
 The default backend context path is:
 
 ```text

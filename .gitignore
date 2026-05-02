@@ -37,6 +37,8 @@ build/
 scripts/logs/
 .bench-runtime2/
 .venv-paddle-bridge/
+.venv-hf-embedding-bridge/
+.venv-hf-rerank-bridge/
 .venv-qwen-vl-embedding-bridge/
 __pycache__/
 scripts/paddle_bridge_runtime/

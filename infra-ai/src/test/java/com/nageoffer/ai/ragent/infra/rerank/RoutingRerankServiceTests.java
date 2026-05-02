@@ -58,17 +58,17 @@ class RoutingRerankServiceTests {
 
     private AIModelProperties properties() {
         AIModelProperties properties = new AIModelProperties();
-        AIModelProperties.ProviderConfig ollama = new AIModelProperties.ProviderConfig();
-        ollama.setUrl("http://127.0.0.1:11434");
-        ollama.setEndpoints(java.util.Map.of("rerank", "/api/generate"));
+        AIModelProperties.ProviderConfig localHf = new AIModelProperties.ProviderConfig();
+        localHf.setUrl("http://127.0.0.1:8126");
+        localHf.setEndpoints(java.util.Map.of("rerank", "/v1/rerank"));
 
         properties.setProviders(new HashMap<>());
-        properties.getProviders().put("ollama", ollama);
+        properties.getProviders().put("local-hf", localHf);
 
         AIModelProperties.ModelCandidate local = new AIModelProperties.ModelCandidate();
         local.setId("qwen3-vl-rerank-local");
-        local.setProvider("ollama");
-        local.setModel("MedAIBase/Qwen3-VL-Reranker:2b");
+        local.setProvider("local-hf");
+        local.setModel("Qwen/Qwen3-VL-Reranker-2B");
         local.setPriority(0);
 
         AIModelProperties.ModelCandidate noop = new AIModelProperties.ModelCandidate();
@@ -88,7 +88,7 @@ class RoutingRerankServiceTests {
 
         @Override
         public String provider() {
-            return "ollama";
+            return "local-hf";
         }
 
         @Override

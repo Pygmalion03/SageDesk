@@ -144,6 +144,12 @@ ai:
       api-key: ${LOCAL_VL_EMBEDDING_API_KEY:}
       endpoints:
         embedding: ${LOCAL_VL_EMBEDDING_ENDPOINT:/v1/embeddings}
+    local-hf:
+      url: ${LOCAL_HF_EMBEDDING_URL:http://127.0.0.1:8125}
+      api-key: ${LOCAL_HF_API_KEY:}
+      endpoints:
+        embedding: ${LOCAL_HF_EMBEDDING_ENDPOINT:/v1/embeddings}
+        rerank: ${LOCAL_HF_RERANK_ENDPOINT:/v1/rerank}
     bailian:
       url: https://dashscope.aliyuncs.com
       api-key: ${BAILIAN_API_KEY:}
@@ -201,8 +207,8 @@ ai:
     default-model: qwen-emb-local-small
     candidates:
       - id: qwen-emb-local-small
-        provider: ollama
-        model: ${QWEN_TEXT_EMBEDDING_MODEL:qwen3-embedding:0.6b}
+        provider: local-hf
+        model: ${QWEN_TEXT_EMBEDDING_MODEL:Qwen/Qwen3-Embedding-0.6B}
         dimension: 1024
         priority: 0
       - id: qwen3-vl-embedding-2b-local
@@ -230,12 +236,18 @@ ai:
         enabled: ${ENABLE_QWEN_EMB_LOCAL_8B:false}
 
   rerank:
-    default-model: qwen3-vl-rerank-local
+    default-model: qwen3-rerank-hf-small
     candidates:
-      - id: qwen3-vl-rerank-local
-        provider: ollama
-        model: ${QWEN_VL_RERANK_MODEL:MedAIBase/Qwen3-VL-Reranker:2b}
+      - id: qwen3-rerank-hf-small
+        provider: local-hf
+        model: ${QWEN_TEXT_RERANK_MODEL:Qwen/Qwen3-Reranker-0.6B}
+        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
         priority: 0
+      - id: qwen3-vl-rerank-local
+        provider: local-hf
+        model: ${QWEN_VL_RERANK_MODEL:Qwen/Qwen3-VL-Reranker-2B}
+        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
+        priority: 5
       - id: qwen3-rerank
         provider: bailian
         model: qwen3-rerank

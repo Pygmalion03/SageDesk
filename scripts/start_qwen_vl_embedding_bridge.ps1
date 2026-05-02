@@ -19,6 +19,12 @@ if (-not (Test-Path $venvPython)) {
 & $venvPython -m pip install --upgrade pip
 & $venvPython -m pip install -r $requirements
 
+if (-not $env:HF_HOME) {
+    $env:HF_HOME = "E:\hugging_face"
+}
+if (-not $env:HF_HUB_CACHE) {
+    $env:HF_HUB_CACHE = Join-Path $env:HF_HOME "hub"
+}
 if (-not $env:QWEN_VL_EMBEDDING_MODEL) {
     $env:QWEN_VL_EMBEDDING_MODEL = "Qwen/Qwen3-VL-Embedding-2B"
 }

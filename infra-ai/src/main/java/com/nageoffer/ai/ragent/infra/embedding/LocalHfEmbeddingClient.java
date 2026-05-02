@@ -15,47 +15,21 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.infra.enums;
+package com.nageoffer.ai.ragent.infra.embedding;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import com.nageoffer.ai.ragent.infra.enums.ModelProvider;
+import okhttp3.OkHttpClient;
+import org.springframework.stereotype.Service;
 
-/**
- * 模型提供商枚举
- * 统一管理提供商名称，避免散落的字符串常量
- */
-@Getter
-@RequiredArgsConstructor
-public enum ModelProvider {
+@Service
+public class LocalHfEmbeddingClient extends LocalVisualEmbeddingClient {
 
-    /**
-     * Ollama 本地模型服务
-     */
-    OLLAMA("ollama"),
+    public LocalHfEmbeddingClient(OkHttpClient httpClient) {
+        super(httpClient);
+    }
 
-    /**
-     * 阿里云百炼大模型平台
-     */
-    BAI_LIAN("bailian"),
-
-    /**
-     * 本地视觉向量服务
-     */
-    LOCAL_VL("local-vl"),
-
-    /**
-     * Hugging Face 本地 HTTP bridge
-     */
-    LOCAL_HF("local-hf"),
-
-    /**
-     * 空实现，用于测试或占位
-     */
-    NOOP("noop");
-
-    private final String id;
-
-    public boolean matches(String provider) {
-        return provider != null && provider.equalsIgnoreCase(id);
+    @Override
+    public String provider() {
+        return ModelProvider.LOCAL_HF.getId();
     }
 }

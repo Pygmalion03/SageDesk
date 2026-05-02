@@ -16,7 +16,7 @@ ai:
     default-model: qwen-emb-local-small
 
   rerank:
-    default-model: qwen3-vl-rerank-local
+    default-model: qwen3-rerank-hf-small
 
 rag:
   default:
