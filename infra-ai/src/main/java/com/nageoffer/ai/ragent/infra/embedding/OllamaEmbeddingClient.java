@@ -36,6 +36,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -72,6 +73,9 @@ public class OllamaEmbeddingClient implements EmbeddingClient {
         JsonObject body = new JsonObject();
         body.addProperty("model", requireModel(target));
         body.add("input", gson.toJsonTree(texts));
+        if (StringUtils.hasText(provider.getKeepAlive())) {
+            body.addProperty("keep_alive", provider.getKeepAlive());
+        }
 
         JsonObject json = executeRequest(url, body);
         return readVectors(json, texts.size());

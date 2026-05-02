@@ -134,6 +134,7 @@ ai:
   providers:
     ollama:
       url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      keep-alive: ${OLLAMA_KEEP_ALIVE:30s}
       endpoints:
         chat: /api/chat
         embedding: /api/embed
@@ -164,9 +165,14 @@ ai:
     message-chunk-size: 1
 
   chat:
-    default-model: qwen3-local-fast
-    deep-thinking-model: qwen3-local
+    default-model: qwen3-5-local-main
+    deep-thinking-model: qwen3-5-local-main
     candidates:
+      - id: qwen3-5-local-main
+        provider: ollama
+        model: ${QWEN_CHAT_MAIN_MODEL:qwen3.5:9b}
+        supports-thinking: true
+        priority: 0
       - id: qwen-plus
         provider: bailian
         model: qwen-plus-latest
@@ -189,14 +195,18 @@ ai:
         priority: 40
       - id: qwen3-local
         provider: ollama
-        model: ${QWEN_CHAT_QUALITY_MODEL:qwen3:8b}
+        model: ${QWEN_CHAT_QUALITY_MODEL:qwen3-local8b:latest}
         supports-thinking: true
         priority: 1
       - id: qwen3-local-fast
         provider: ollama
-        model: ${QWEN_CHAT_FAST_MODEL:qwen3:4b}
+        model: ${QWEN_CHAT_FAST_MODEL:qwen3-local8b:latest}
         supports-thinking: true
-        priority: 0
+        priority: 2
+      - id: llama3-1-local
+        provider: ollama
+        model: llama3.1:8b
+        priority: 10
 
   embedding:
     default-model: qwen-emb-local-small
@@ -211,6 +221,12 @@ ai:
         model: ${QWEN_VL_EMBEDDING_MODEL:Qwen/Qwen3-VL-Embedding-2B}
         dimension: 1024
         priority: 1
+      - id: qwen3-vl-embedding-2b-ollama
+        provider: ollama
+        model: ${QWEN_VL_EMBEDDING_OLLAMA_MODEL:aksh-desai/qwen3-vl-embedding:2b-q8_0}
+        dimension: 2048
+        priority: 10
+        enabled: ${ENABLE_QWEN_VL_EMBEDDING_OLLAMA:false}
       - id: qwen3-vl-embedding-1024
         provider: bailian
         model: qwen3-vl-embedding

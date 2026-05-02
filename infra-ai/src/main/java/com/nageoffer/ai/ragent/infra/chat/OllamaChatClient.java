@@ -44,6 +44,7 @@ import okhttp3.ResponseBody;
 import okio.BufferedSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -78,6 +79,9 @@ public class OllamaChatClient implements ChatClient {
         JsonObject body = new JsonObject();
         body.addProperty("model", requireModel(target));
         body.addProperty("stream", false);
+        if (StringUtils.hasText(provider.getKeepAlive())) {
+            body.addProperty("keep_alive", provider.getKeepAlive());
+        }
 
         JsonArray messages = buildMessages(request);
         body.add("messages", messages);
@@ -190,6 +194,9 @@ public class OllamaChatClient implements ChatClient {
         JsonObject body = new JsonObject();
         body.addProperty("model", requireModel(target));
         body.addProperty("stream", true);
+        if (StringUtils.hasText(provider.getKeepAlive())) {
+            body.addProperty("keep_alive", provider.getKeepAlive());
+        }
 
         JsonArray messages = buildMessages(request);
         body.add("messages", messages);

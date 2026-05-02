@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package com.nageoffer.ai.ragent.infra.embedding;
+package com.nageoffer.ai.ragent.infra.chat;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.nageoffer.ai.ragent.framework.convention.ChatMessage;
+import com.nageoffer.ai.ragent.framework.convention.ChatRequest;
 import com.nageoffer.ai.ragent.infra.config.AIModelProperties;
 import com.nageoffer.ai.ragent.infra.model.ModelTarget;
 import com.sun.net.httpserver.HttpExchange;
@@ -31,12 +33,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class OllamaEmbeddingClientTests {
+class OllamaChatClientTests {
 
     private HttpServer server;
 
@@ -48,53 +49,43 @@ class OllamaEmbeddingClientTests {
     }
 
     @Test
-    void embedBatchPostsAllTextsInOneOllamaRequest() throws Exception {
-        AtomicInteger callCount = new AtomicInteger();
+    void chatPostsMainLocalModelAndKeepAlive() throws Exception {
         AtomicReference<String> requestBody = new AtomicReference<>();
-        startServer("{\"embeddings\":[[0.1,0.2],[0.3,0.4]]}", callCount, requestBody);
+        startServer("{\"message\":{\"role\":\"assistant\",\"content\":\"OK\"}}", requestBody);
 
-        OllamaEmbeddingClient client = new OllamaEmbeddingClient(new OkHttpClient());
-        List<List<Float>> vectors = client.embedBatch(List.of("alpha", "beta"), target());
+        OllamaChatClient client = new OllamaChatClient(new OkHttpClient(), Runnable::run);
+        String response = client.chat(ChatRequest.builder()
+                .messages(List.of(ChatMessage.user("ping")))
+                .build(), target());
 
-        assertEquals(1, callCount.get());
-        assertEquals(List.of(0.1f, 0.2f), vectors.get(0));
-        assertEquals(List.of(0.3f, 0.4f), vectors.get(1));
-
+        assertEquals("OK", response);
         JsonObject body = JsonParser.parseString(requestBody.get()).getAsJsonObject();
-        assertEquals("qwen3-embedding:0.6b", body.get("model").getAsString());
+        assertEquals("qwen3.5:9b", body.get("model").getAsString());
         assertEquals("30s", body.get("keep_alive").getAsString());
-        assertEquals("alpha", body.getAsJsonArray("input").get(0).getAsString());
-        assertEquals("beta", body.getAsJsonArray("input").get(1).getAsString());
+        assertEquals("user", body.getAsJsonArray("messages").get(0).getAsJsonObject().get("role").getAsString());
     }
 
     private ModelTarget target() {
         AIModelProperties.ProviderConfig provider = new AIModelProperties.ProviderConfig();
         provider.setUrl("http://127.0.0.1:" + server.getAddress().getPort());
-        provider.setEndpoints(java.util.Map.of("embedding", "/api/embed"));
+        provider.setEndpoints(java.util.Map.of("chat", "/api/chat"));
         provider.setKeepAlive("30s");
 
         AIModelProperties.ModelCandidate candidate = new AIModelProperties.ModelCandidate();
-        candidate.setId("qwen-emb-local-small");
+        candidate.setId("qwen3-5-local-main");
         candidate.setProvider("ollama");
-        candidate.setModel("qwen3-embedding:0.6b");
-        candidate.setDimension(1024);
+        candidate.setModel("qwen3.5:9b");
 
         return new ModelTarget(candidate.getId(), candidate, provider);
     }
 
-    private void startServer(String response,
-                             AtomicInteger callCount,
-                             AtomicReference<String> requestBody) throws IOException {
+    private void startServer(String response, AtomicReference<String> requestBody) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/api/embed", exchange -> handle(exchange, response, callCount, requestBody));
+        server.createContext("/api/chat", exchange -> handle(exchange, response, requestBody));
         server.start();
     }
 
-    private void handle(HttpExchange exchange,
-                        String response,
-                        AtomicInteger callCount,
-                        AtomicReference<String> requestBody) throws IOException {
-        callCount.incrementAndGet();
+    private void handle(HttpExchange exchange, String response, AtomicReference<String> requestBody) throws IOException {
         requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
         byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().add("Content-Type", "application/json");

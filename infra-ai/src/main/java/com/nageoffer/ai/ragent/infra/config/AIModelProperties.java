@@ -155,6 +155,8 @@ public class AIModelProperties {
          */
         private String apiKey;
 
+        private String keepAlive;
+
         /**
          * 端点映射配置
          * key: 端点类型，value: 端点路径

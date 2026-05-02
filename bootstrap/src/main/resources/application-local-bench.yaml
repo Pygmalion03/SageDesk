@@ -9,8 +9,8 @@ spring:
 
 ai:
   chat:
-    default-model: qwen3-local-fast
-    deep-thinking-model: qwen3-local
+    default-model: qwen3-5-local-main
+    deep-thinking-model: qwen3-5-local-main
 
   embedding:
     default-model: qwen-emb-local-small
