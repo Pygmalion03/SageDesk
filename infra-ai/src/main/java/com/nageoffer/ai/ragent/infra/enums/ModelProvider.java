@@ -39,11 +39,6 @@ public enum ModelProvider {
     BAI_LIAN("bailian"),
 
     /**
-     * 硅基流动 AI 模型服务
-     */
-    SILICON_FLOW("siliconflow"),
-
-    /**
      * 本地视觉向量服务
      */
     LOCAL_VL("local-vl"),

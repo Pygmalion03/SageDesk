@@ -37,7 +37,7 @@ rag:
       visual-global:
         enabled: true
         embedding-model: qwen3-vl-embedding-2b-local
-        rerank-model: rerank-noop
+        rerank-model: qwen3-vl-rerank-local
       intent-directed-visual:
         embedding-model: qwen3-vl-embedding-2b-local
 
@@ -50,4 +50,4 @@ ai:
     default-model: qwen-emb-local-small
 
   rerank:
-    default-model: rerank-noop
+    default-model: qwen3-vl-rerank-local

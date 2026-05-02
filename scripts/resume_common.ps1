@@ -229,7 +229,7 @@ function Assert-ModelReady {
         throw "Provider config not found for model '$($resolved.id)' (provider: $providerName)."
     }
 
-    if (($providerName -eq "bailian" -or $providerName -eq "siliconflow") -and [string]::IsNullOrWhiteSpace([string]$provider.apiKey)) {
+    if ($providerName -eq "bailian" -and [string]::IsNullOrWhiteSpace([string]$provider.apiKey)) {
         throw "Model '$($resolved.id)' uses provider '$providerName', but its apiKey is empty. Update your AI provider config before running this script."
     }
 

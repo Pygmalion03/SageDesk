@@ -137,7 +137,6 @@ Runtime secrets should be provided through environment variables. Do not commit 
 
 ```powershell
 $env:BAILIAN_API_KEY="your-bailian-api-key"
-$env:SILICONFLOW_API_KEY="your-siliconflow-api-key"
 $env:PADDLE_API_KEY="your-paddle-api-key"
 ```
 

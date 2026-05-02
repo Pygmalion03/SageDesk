@@ -26,6 +26,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -67,14 +68,23 @@ public class RoutingRerankService implements RerankService {
         if (!StringUtils.hasText(modelId)) {
             return rerank(query, candidates, topN);
         }
-        ModelTarget target = selector.selectRerankCandidates().stream()
+        List<ModelTarget> targets = selector.selectRerankCandidates();
+        ModelTarget target = targets.stream()
                 .filter(each -> modelId.equals(each.id()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Rerank model not found: " + modelId));
-        RerankClient client = clientsByProvider.get(target.candidate().getProvider());
-        if (client == null) {
-            throw new IllegalStateException("Rerank client not found: " + target.candidate().getProvider());
-        }
-        return client.rerank(query, candidates, topN, target);
+
+        List<ModelTarget> ordered = new ArrayList<>();
+        ordered.add(target);
+        targets.stream()
+                .filter(each -> !modelId.equals(each.id()))
+                .forEach(ordered::add);
+
+        return executor.executeWithFallback(
+                ModelCapability.RERANK,
+                ordered,
+                each -> clientsByProvider.get(each.candidate().getProvider()),
+                (client, each) -> client.rerank(query, candidates, topN, each)
+        );
     }
 }

@@ -117,7 +117,7 @@ rag:
         enabled: true
         top-k-multiplier: 2
         embedding-model: qwen3-vl-embedding-2b-local
-        rerank-model: rerank-noop
+        rerank-model: qwen3-vl-rerank-local
       intent-directed-visual:
         enabled: true
         top-k-multiplier: 2
@@ -138,6 +138,7 @@ ai:
       endpoints:
         chat: /api/chat
         embedding: /api/embed
+        rerank: /api/generate
     local-vl:
       url: ${LOCAL_VL_EMBEDDING_URL:http://127.0.0.1:8115}
       api-key: ${LOCAL_VL_EMBEDDING_API_KEY:}
@@ -150,13 +151,6 @@ ai:
         chat: /compatible-mode/v1/chat/completions
         embedding: /compatible-mode/v1/embeddings
         rerank: /api/v1/services/rerank/text-rerank/text-rerank
-    siliconflow:
-      url: https://api.siliconflow.cn
-      api-key: ${SILICONFLOW_API_KEY:}
-      endpoints:
-        chat: /v1/chat/completions
-        embedding: /v1/embeddings
-
   selection:
     failure-threshold: 2
     open-duration-ms: 30000
@@ -188,11 +182,6 @@ ai:
         supports-thinking: true
         supports-multimodal: true
         priority: 31
-      - id: glm-4.7
-        provider: siliconflow
-        model: Pro/zai-org/GLM-4.7
-        supports-thinking: true
-        priority: 40
       - id: qwen3-local
         provider: ollama
         model: ${QWEN_CHAT_QUALITY_MODEL:qwen3-local8b:latest}
@@ -233,12 +222,6 @@ ai:
         url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding
         dimension: 1024
         priority: 20
-      - id: qwen-emb-8b
-        provider: siliconflow
-        model: Qwen/Qwen3-Embedding-8B
-        dimension: 4096
-        priority: 30
-        enabled: ${ENABLE_QWEN_EMB_8B:false}
       - id: qwen-emb-local
         provider: ollama
         model: qwen3-embedding:8b-fp16
@@ -247,16 +230,22 @@ ai:
         enabled: ${ENABLE_QWEN_EMB_LOCAL_8B:false}
 
   rerank:
-    default-model: rerank-noop
+    default-model: qwen3-vl-rerank-local
     candidates:
-      - id: qwen3-vl-rerank
-        provider: bailian
-        model: qwen3-vl-rerank
+      - id: qwen3-vl-rerank-local
+        provider: ollama
+        model: ${QWEN_VL_RERANK_MODEL:MedAIBase/Qwen3-VL-Reranker:2b}
         priority: 0
       - id: qwen3-rerank
         provider: bailian
         model: qwen3-rerank
-        priority: 1
+        priority: 20
+        enabled: ${ENABLE_BAILIAN_RERANK:false}
+      - id: qwen3-vl-rerank
+        provider: bailian
+        model: qwen3-vl-rerank
+        priority: 30
+        enabled: ${ENABLE_BAILIAN_RERANK:false}
       - id: rerank-noop
         provider: noop
         model: noop
