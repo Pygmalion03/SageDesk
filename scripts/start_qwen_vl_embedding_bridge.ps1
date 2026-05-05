@@ -1,7 +1,8 @@
 param(
     [string]$Python = "python",
     [string]$BindHost = "127.0.0.1",
-    [int]$Port = 8115
+    [int]$Port = 8115,
+    [string]$TorchIndexUrl = $env:RAG_TORCH_INDEX_URL
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,11 +13,21 @@ $venvPython = Join-Path $venvPath "Scripts\\python.exe"
 $requirements = Join-Path $PSScriptRoot "qwen_vl_embedding_bridge_requirements.txt"
 $bridgeScript = Join-Path $PSScriptRoot "qwen_vl_embedding_bridge.py"
 
+if (Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue) {
+    Write-Host "Qwen3-VL embedding bridge already listening on ${BindHost}:$Port"
+    return
+}
+
 if (-not (Test-Path $venvPython)) {
     & $Python -m venv $venvPath
 }
 
+if (-not $TorchIndexUrl) {
+    $TorchIndexUrl = "https://download.pytorch.org/whl/cu126"
+}
+
 & $venvPython -m pip install --upgrade pip
+& $venvPython -m pip install --upgrade torch torchvision torchaudio --index-url $TorchIndexUrl
 & $venvPython -m pip install -r $requirements
 
 if (-not $env:HF_HOME) {

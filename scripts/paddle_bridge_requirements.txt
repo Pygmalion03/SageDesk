@@ -1,5 +1,0 @@
-paddlepaddle==3.3.1
-paddleocr @ git+https://github.com/PaddlePaddle/PaddleOCR.git@v3.5.0
-paddlex[ocr]>=3.5.0,<3.6.0
-PyMuPDF>=1.26.0
-Pillow>=10.0.0

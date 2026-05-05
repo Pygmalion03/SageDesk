@@ -795,7 +795,9 @@ public class PaddleDocumentParser implements DocumentParser {
         return normalized.contains("layout_det_res")
                 || normalized.contains("layout_res")
                 || normalized.contains("det_res")
-                || normalized.contains("ocr_res");
+                || normalized.contains("ocr_res")
+                || normalized.contains("vis_result")
+                || normalized.contains("_annotated");
     }
 
     private String summarize(String text) {

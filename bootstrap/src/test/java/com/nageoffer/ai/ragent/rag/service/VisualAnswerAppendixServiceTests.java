@@ -203,6 +203,290 @@ class VisualAnswerAppendixServiceTests {
     }
 
     @Test
+    void shouldUseSourcePageImageWhenVisualCandidateIsLocalCrop() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk tableCrop = RetrievedChunk.builder()
+                .id("yd338cc-table")
+                .text("YD-338CC Series Technical Specifications Feed Width Paper Capacity Price USD")
+                .score(0.88f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "block_type", "table",
+                        "image_uri", "E:/Projects/ragent/scripts/paddle_bridge_runtime/crops/page-block-12.png",
+                        "source_location", "s3://yuedujpg3/full-page.jpg",
+                        "source_page_image", "E:/Projects/ragent/scripts/paddle_bridge_runtime/inputs/full-page.jpg",
+                        "page_no", 1
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(tableCrop)));
+
+        Assertions.assertTrue(markdown.contains("s3://yuedujpg3/full-page.jpg"));
+        Assertions.assertFalse(markdown.contains("page-block-12.png"));
+    }
+
+    @Test
+    void shouldDeduplicateVisualChunksFromSamePageWhenRichPageEvidenceExists() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk richPage = RetrievedChunk.builder()
+                .id("page-18")
+                .text("""
+                        YD-338CC Series Product Overview
+                        Technical Specifications Model Feed Width Cut Size Paper Capacity Card Capacity Disc Capacity Price USD
+                        """)
+                .score(0.77f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "block_id", "paddle-page-18",
+                        "task_id", "task-a",
+                        "image_uri", "E:/pages/page-18.png",
+                        "page_no", 18
+                ))
+                .build();
+        RetrievedChunk samePageCrop = RetrievedChunk.builder()
+                .id("crop-18")
+                .text("<div>Fig. 1: Full View</div>")
+                .score(0.75f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "task_id", "task-a",
+                        "image_uri", "s3://rag-media/page-18-crop.jpg",
+                        "page_no", 18
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(richPage, samePageCrop)));
+
+        Assertions.assertEquals(1, countOccurrences(markdown, "](<"));
+        Assertions.assertTrue(markdown.contains("page-18.png"));
+        Assertions.assertFalse(markdown.contains("page-18-crop.jpg"));
+    }
+
+    @Test
+    void shouldNotDeduplicateDifferentSourceDocumentsWithSamePageNumber() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk firstDocumentPageOne = RetrievedChunk.builder()
+                .id("doc-a-page-1")
+                .text("YD-338CC Series Product Overview Technical Specifications Feed Width Price USD")
+                .score(0.91f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "task_id", "doc-a",
+                        "source_location", "s3://yuedujpg3/doc-a.jpg",
+                        "image_uri", "s3://yuedujpg3/doc-a.jpg",
+                        "page_no", 1
+                ))
+                .build();
+        RetrievedChunk secondDocumentPageOne = RetrievedChunk.builder()
+                .id("doc-b-page-1")
+                .text("YD-3120 Series Product Overview Technical Specifications Feed Width Price USD")
+                .score(0.89f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "task_id", "doc-b",
+                        "source_location", "s3://yuedujpg3/doc-b.jpg",
+                        "image_uri", "s3://yuedujpg3/doc-b.jpg",
+                        "page_no", 1
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(firstDocumentPageOne, secondDocumentPageOne)));
+
+        Assertions.assertTrue(markdown.contains("doc-a.jpg"));
+        Assertions.assertTrue(markdown.contains("doc-b.jpg"));
+    }
+
+    @Test
+    void shouldDropLowScoreVisualOutliersWhenStrongVisualEvidenceExists() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk productPage = RetrievedChunk.builder()
+                .id("page-18")
+                .text("YD-338CC Series Product Overview Technical Specifications Paper Capacity Disc Capacity Price USD")
+                .score(0.77f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "image_uri", "E:/pages/page-18.png",
+                        "page_no", 18
+                ))
+                .build();
+        RetrievedChunk unrelatedPage = RetrievedChunk.builder()
+                .id("page-3")
+                .text("Book / Paper / Hard Drive Shredding Effectiveness 1*1mm Powder Form")
+                .score(0.26f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "image_uri", "E:/pages/page-3.png",
+                        "page_no", 3
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(productPage, unrelatedPage)));
+
+        Assertions.assertEquals(1, countOccurrences(markdown, "](<"));
+        Assertions.assertTrue(markdown.contains("page-18.png"));
+        Assertions.assertFalse(markdown.contains("page-3.png"));
+    }
+
+    @Test
+    void shouldSuppressSingleVeryLowScoreVisualCandidate() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk weakCandidate = RetrievedChunk.builder()
+                .id("page-1")
+                .text("Technical Specifications")
+                .score(0.001f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "image_uri", "E:/pages/page-1-technical-specifications-crop.png",
+                        "page_no", 1
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(weakCandidate)));
+
+        Assertions.assertEquals("", markdown);
+    }
+
+    @Test
+    void shouldPreferCleanPageImageOverLayoutDetectionOverlayFromSamePage() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk debugOverlay = RetrievedChunk.builder()
+                .id("layout-det-page-18")
+                .text("YD-338CC Series Product Overview Technical Specifications Feed Width Paper Capacity Price USD")
+                .score(0.997f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "block_id", "paddle-page-18",
+                        "image_uri", "E:/tmp/paddle_api_runtime/page-18/output/layout_det_res.jpg",
+                        "page_no", 18
+                ))
+                .build();
+        RetrievedChunk cleanPage = RetrievedChunk.builder()
+                .id("clean-page-18")
+                .text("YD-338CC Series Product Overview Technical Specifications Feed Width Paper Capacity Price USD")
+                .score(0.994f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "block_id", "paddle-page-18-clean",
+                        "image_uri", "E:/tmp/paddle_api_runtime/page-18/page.png",
+                        "page_no", 18
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(debugOverlay, cleanPage)));
+
+        Assertions.assertEquals(1, countOccurrences(markdown, "](<"));
+        Assertions.assertTrue(markdown.contains("page.png"));
+        Assertions.assertFalse(markdown.contains("layout_det_res.jpg"));
+    }
+
+    @Test
+    void shouldSuppressPaddleVisResultOverlayEvenWithoutCleanCandidate() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk debugOverlay = RetrievedChunk.builder()
+                .id("vis-result-page-18")
+                .text("YD-338CC Series Product Overview Technical Specifications Feed Width Paper Capacity Price USD")
+                .score(0.997f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "block_id", "paddle-page-18",
+                        "image_uri", "E:/Projects/ragent/scripts/paddle_bridge_runtime/output/vis_result/page-18_annotated.png",
+                        "page_no", 18
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(debugOverlay)));
+
+        Assertions.assertEquals("", markdown);
+    }
+
+    @Test
+    void shouldSuppressGenericCategoryVisualWhenSpecificRichProductPageExists() {
+        MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
+        when(mediaPreviewService.buildPreviewUrl(anyString()))
+                .thenAnswer(invocation -> "/preview?uri=" + invocation.getArgument(0));
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setVisualAnswerImageLimit(4);
+        VisualAnswerAppendixService service = new VisualAnswerAppendixService(mediaPreviewService, defaults);
+
+        RetrievedChunk productPage = RetrievedChunk.builder()
+                .id("page-18")
+                .text("""
+                        YD-338CC Series Product Overview
+                        Technical Specifications Model Feed Width Cut Size Paper Capacity Card Capacity Disc Capacity Price USD
+                        """)
+                .score(0.77f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "image_uri", "E:/pages/page-18.png",
+                        "page_no", 18
+                ))
+                .build();
+        RetrievedChunk genericCategoryPage = RetrievedChunk.builder()
+                .id("page-8")
+                .text("""
+                        High-Power Office Shredders
+                        Overview suitable for large offices, administrative departments and enterprises.
+                        Representative models: YD-23026, YD-3120, YD-418CC, YD-428CC, YD-310CC26, YD-338CC
+                        Quick Selection Front View Feeding Inlet Model Features Price USD
+                        """)
+                .score(0.978f)
+                .metadata(Map.of(
+                        "content_type", "visual",
+                        "image_uri", "E:/pages/page-8.png",
+                        "page_no", 8
+                ))
+                .build();
+
+        String markdown = service.buildMarkdown(Map.of("visual", List.of(productPage, genericCategoryPage)));
+
+        Assertions.assertEquals(1, countOccurrences(markdown, "](<"));
+        Assertions.assertTrue(markdown.contains("page-18.png"));
+        Assertions.assertFalse(markdown.contains("page-8.png"));
+    }
+
+    @Test
     void shouldRenderSummaryAndFactsInSingleBlockquote() {
         MediaPreviewService mediaPreviewService = mock(MediaPreviewService.class);
         when(mediaPreviewService.buildPreviewUrl(anyString()))

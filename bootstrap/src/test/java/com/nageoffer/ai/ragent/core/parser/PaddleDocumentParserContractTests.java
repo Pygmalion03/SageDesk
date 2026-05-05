@@ -87,6 +87,7 @@ class PaddleDocumentParserContractTests {
 
         DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
         properties.setEnabled(true);
+        properties.setProvider("bridge");
         properties.setBaseUrl("http://127.0.0.1:" + server.getAddress().getPort());
         properties.setEndpoint("/v1/document-analysis");
         properties.setApiKey("bridge-token");
@@ -255,6 +256,60 @@ class PaddleDocumentParserContractTests {
         );
 
         Assertions.assertEquals("https://example.com/crop.jpg",
+                result.document().getVisualBlocks().get(0).getImageUri());
+    }
+
+    @Test
+    void shouldPreferMarkdownImageOverPaddleVisResultOverlay() throws Exception {
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/api/v2/ocr/jobs", exchange -> {
+            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, """
+                        {"data":{"jobId":"job-1"}}
+                        """);
+                return;
+            }
+            writeJson(exchange, """
+                    {
+                      "data": {
+                        "state": "done",
+                        "resultUrl": {
+                          "jsonUrl": "http://127.0.0.1:%d/result.jsonl"
+                        }
+                      }
+                    }
+                    """.formatted(server.getAddress().getPort()));
+        });
+        server.createContext("/result.jsonl", exchange -> writeText(exchange, """
+                {"result":{"layoutParsingResults":[{"pageNo":18,"markdown":{"text":"Technical Specifications","images":{"imgs/img_in_image_box_340_483_1176_1815.jpg":"https://example.com/product.jpg"}},"outputImages":{"vis_result/page-18_annotated.png":"https://example.com/vis_result/page-18_annotated.png"}}]}}
+                """));
+        server.start();
+
+        DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
+        properties.setEnabled(true);
+        properties.setProvider("official");
+        properties.setRequestMode("async");
+        properties.setApiKey("paddle-token");
+        properties.setAsyncJobUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/api/v2/ocr/jobs");
+        properties.setAsyncPollIntervalMs(1);
+        properties.setAsyncTimeoutMs(1000);
+        properties.setDownloadRemoteImages(false);
+
+        PaddleDocumentParser parser = new PaddleDocumentParser(
+                new OkHttpClient(),
+                objectMapper,
+                properties,
+                mock(FileStorageService.class),
+                mock(S3Client.class)
+        );
+
+        ParseResult result = parser.parse(
+                "image".getBytes(StandardCharsets.UTF_8),
+                "image/jpeg",
+                Map.of()
+        );
+
+        Assertions.assertEquals("https://example.com/product.jpg",
                 result.document().getVisualBlocks().get(0).getImageUri());
     }
 

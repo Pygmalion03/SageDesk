@@ -43,13 +43,14 @@ rag:
     image-collection-suffix: _images
     visual-answer-model: qwen3-vl-8b-thinking
     visual-answer-image-limit: 4
+    visual-answer-min-score: 0.05
     metric-type: COSINE
 
   document-analysis:
     enabled: true
     auto-detect: true
     fallback-to-tika-on-error: true
-    provider: ${PADDLE_PROVIDER:bridge}
+    provider: ${PADDLE_PROVIDER:official}
     request-mode: ${PADDLE_REQUEST_MODE:sync}
     api-key: ${PADDLE_API_KEY:}
     base-url: ${PADDLE_BRIDGE_BASE_URL:http://127.0.0.1:8099}
@@ -108,6 +109,11 @@ rag:
         url: http://localhost:9099
 
   search:
+    rerank:
+      enabled: true
+      candidate-multiplier: 3
+      max-candidates: 12
+      filter-visual-navigation-noise: true
     channels:
       vector-global:
         confidence-threshold: 0.6
@@ -117,7 +123,7 @@ rag:
         enabled: true
         top-k-multiplier: 2
         embedding-model: qwen3-vl-embedding-2b-local
-        rerank-model: qwen3-vl-rerank-local
+        rerank-model: ${RAG_VISUAL_RERANK_MODEL:minilm-rerank-local}
       intent-directed-visual:
         enabled: true
         top-k-multiplier: 2
@@ -165,8 +171,8 @@ ai:
     message-chunk-size: 1
 
   chat:
-    default-model: qwen3-5-local-main
-    deep-thinking-model: qwen3-5-local-main
+    default-model: qwen-plus
+    deep-thinking-model: qwen3-max
     candidates:
       - id: qwen3-5-local-main
         provider: ollama
@@ -228,6 +234,7 @@ ai:
         url: https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding
         dimension: 1024
         priority: 20
+        enabled: ${ENABLE_BAILIAN_VL_EMBEDDING:false}
       - id: qwen-emb-local
         provider: ollama
         model: qwen3-embedding:8b-fp16
@@ -236,18 +243,25 @@ ai:
         enabled: ${ENABLE_QWEN_EMB_LOCAL_8B:false}
 
   rerank:
-    default-model: qwen3-rerank-hf-small
+    default-model: ${RAG_RERANK_DEFAULT:minilm-rerank-local}
     candidates:
+      - id: minilm-rerank-local
+        provider: local-hf
+        model: ${MINILM_RERANK_MODEL:cross-encoder/mmarco-mMiniLMv2-L12-H384-v1}
+        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
+        priority: 0
+        enabled: ${ENABLE_MINILM_RERANK_LOCAL:true}
       - id: qwen3-rerank-hf-small
         provider: local-hf
         model: ${QWEN_TEXT_RERANK_MODEL:Qwen/Qwen3-Reranker-0.6B}
         url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
-        priority: 0
+        priority: 5
       - id: qwen3-vl-rerank-local
         provider: local-hf
         model: ${QWEN_VL_RERANK_MODEL:Qwen/Qwen3-VL-Reranker-2B}
-        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
+        url: ${LOCAL_HF_VL_RERANK_URL:http://127.0.0.1:8127/v1/rerank}
         priority: 5
+        enabled: ${ENABLE_QWEN_VL_RERANK_LOCAL:false}
       - id: qwen3-rerank
         provider: bailian
         model: qwen3-rerank

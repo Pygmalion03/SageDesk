@@ -116,13 +116,28 @@ public class MediaPreviewService {
 
     private Set<Path> buildAllowedRoots() {
         Set<Path> roots = new LinkedHashSet<>();
-        Path configuredRoot = Paths.get(documentAnalysisProperties.getResultDownloadDir()).toAbsolutePath().normalize();
+        String downloadDir = documentAnalysisProperties.getResultDownloadDir();
+        Path configuredPath = Paths.get(downloadDir);
+        addRuntimeRoots(roots, configuredPath.toAbsolutePath().normalize());
+
+        if (!configuredPath.isAbsolute()) {
+            Path workingDir = Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath().normalize();
+            addRuntimeRoots(roots, workingDir.resolve(configuredPath).normalize());
+
+            Path projectDir = workingDir.getParent();
+            if (projectDir != null) {
+                addRuntimeRoots(roots, projectDir.resolve(configuredPath).normalize());
+            }
+        }
+        return roots;
+    }
+
+    private void addRuntimeRoots(Set<Path> roots, Path configuredRoot) {
         roots.add(configuredRoot);
         Path parent = configuredRoot.getParent();
         if (parent != null) {
             roots.add(parent.resolve("paddle_bridge_runtime").toAbsolutePath().normalize());
         }
-        return roots;
     }
 
     private String extractFileName(String imageUri) {

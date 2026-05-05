@@ -35,7 +35,9 @@ build/
 ### VS Code ###
 .vscode/
 scripts/logs/
+.runtime-logs/
 .bench-runtime2/
+bootstrap/scripts/
 .venv-paddle-bridge/
 .venv-hf-embedding-bridge/
 .venv-hf-rerank-bridge/

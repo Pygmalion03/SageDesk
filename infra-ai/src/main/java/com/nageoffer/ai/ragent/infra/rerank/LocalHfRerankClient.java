@@ -38,11 +38,13 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -54,8 +56,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class LocalHfRerankClient implements RerankClient {
 
+    private static final long DEFAULT_TIMEOUT_SECONDS = 30L;
+
     private final Gson gson = new Gson();
     private final OkHttpClient httpClient;
+
+    @Value("${LOCAL_HF_RERANK_TIMEOUT_SECONDS:30}")
+    private long timeoutSeconds;
 
     @Override
     public String provider() {
@@ -106,7 +113,7 @@ public class LocalHfRerankClient implements RerankClient {
                 .addHeader("Content-Type", HttpMediaTypes.JSON_UTF8_HEADER)
                 .build();
 
-        try (Response response = httpClient.newCall(request).execute()) {
+        try (Response response = timeoutClient().newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String errBody = readBody(response.body());
                 log.warn("Local HF rerank HTTP error: status={}, body={}", response.code(), errBody);
@@ -125,6 +132,14 @@ public class LocalHfRerankClient implements RerankClient {
                     e
             );
         }
+    }
+
+    private OkHttpClient timeoutClient() {
+        long seconds = timeoutSeconds > 0 ? timeoutSeconds : DEFAULT_TIMEOUT_SECONDS;
+        return httpClient.newBuilder()
+                .readTimeout(Duration.ofSeconds(seconds))
+                .callTimeout(Duration.ofSeconds(seconds + 5))
+                .build();
     }
 
     private List<ScoredChunk> readResults(JsonObject root, List<RetrievedChunk> candidates) {

@@ -66,6 +66,8 @@ public class RAGDefaultProperties {
 
     private Integer visualAnswerImageLimit = 4;
 
+    private Float visualAnswerMinScore = 0.05f;
+
     /**
      * 向量相似度度量类型
      * <p>

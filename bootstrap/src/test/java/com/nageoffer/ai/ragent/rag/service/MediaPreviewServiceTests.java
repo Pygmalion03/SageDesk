@@ -100,4 +100,31 @@ class MediaPreviewServiceTests {
             Files.deleteIfExists(imagePath);
         }
     }
+
+    @Test
+    void shouldAllowLegacyBridgeRuntimeImageWhenDownloadDirIsRelativeToProjectRoot() throws Exception {
+        Path projectRoot = tempDir.resolve("ragent");
+        Path bootstrapDir = projectRoot.resolve("bootstrap");
+        Path legacyRoot = projectRoot.resolve("scripts").resolve("paddle_bridge_runtime");
+        Files.createDirectories(bootstrapDir);
+        Files.createDirectories(legacyRoot);
+        Path imagePath = legacyRoot.resolve("legacy-preview.png");
+        Files.write(imagePath, new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47});
+
+        String previousUserDir = System.getProperty("user.dir");
+        try {
+            System.setProperty("user.dir", bootstrapDir.toString());
+
+            DocumentAnalysisProperties properties = new DocumentAnalysisProperties();
+            properties.setResultDownloadDir("scripts/paddle_api_runtime");
+            MediaPreviewService service = new MediaPreviewService(mock(FileStorageService.class), properties);
+
+            MediaPreviewService.MediaPayload payload = service.load(imagePath.toString());
+
+            Assertions.assertEquals("legacy-preview.png", payload.fileName());
+            Assertions.assertEquals("image/png", payload.contentType());
+        } finally {
+            System.setProperty("user.dir", previousUserDir);
+        }
+    }
 }

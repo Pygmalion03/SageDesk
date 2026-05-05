@@ -97,6 +97,8 @@ public class IntentNode {
      */
     private String collectionName;
 
+    private String embeddingModel;
+
     /**
      * MCP 工具 ID（仅对 kind=MCP 有意义）
      */

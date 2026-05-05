@@ -25,6 +25,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
+import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.infra.util.LLMResponseCleaner;
 import com.nageoffer.ai.ragent.rag.dao.entity.IntentNodeDO;
 import com.nageoffer.ai.ragent.rag.dao.mapper.IntentNodeMapper;
@@ -44,6 +46,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.INTENT_CLASSIFIER_PROMPT_PATH;
@@ -60,6 +63,7 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
 
     private final LLMService llmService;
     private final IntentNodeMapper intentNodeMapper;
+    private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final PromptTemplateLoader promptTemplateLoader;
     private final IntentTreeCacheManager intentTreeCacheManager;
 
@@ -293,15 +297,35 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
             return List.of();
         }
 
+        Set<Long> kbIds = intentNodeDOList.stream()
+                .map(IntentNodeDO::getKbId)
+                .filter(kbId -> kbId != null)
+                .collect(Collectors.toSet());
+        Map<Long, KnowledgeBaseDO> kbMap = kbIds.isEmpty()
+                ? Map.of()
+                : knowledgeBaseMapper.selectList(
+                        Wrappers.lambdaQuery(KnowledgeBaseDO.class)
+                                .in(KnowledgeBaseDO::getId, kbIds)
+                                .eq(KnowledgeBaseDO::getDeleted, 0)
+                ).stream().collect(Collectors.toMap(KnowledgeBaseDO::getId, kb -> kb));
+
         // 2. DO -> IntentNode（第一遍：先把所有节点建出来，放到 map 里）
         Map<String, IntentNode> id2Node = new HashMap<>();
         for (IntentNodeDO each : intentNodeDOList) {
             IntentNode node = BeanUtil.toBean(each, IntentNode.class);
             // 数据库中的 code 映射到 IntentNode 的 id/parentId
             node.setId(each.getIntentCode());
+            node.setKbId(each.getKbId() == null ? null : String.valueOf(each.getKbId()));
             node.setParentId(each.getParentCode());
             node.setMcpToolId(each.getMcpToolId());
             node.setParamPromptTemplate(each.getParamPromptTemplate());
+            KnowledgeBaseDO kb = each.getKbId() == null ? null : kbMap.get(each.getKbId());
+            if (kb != null) {
+                if (kb.getCollectionName() != null && !kb.getCollectionName().isBlank()) {
+                    node.setCollectionName(kb.getCollectionName());
+                }
+                node.setEmbeddingModel(kb.getEmbeddingModel());
+            }
             // 确保 children 不为 null（避免后面 add NPE）
             if (node.getChildren() == null) {
                 node.setChildren(new ArrayList<>());

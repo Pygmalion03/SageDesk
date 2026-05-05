@@ -28,6 +28,8 @@ public class SearchChannelProperties {
 
     private Channels channels = new Channels();
 
+    private Rerank rerank = new Rerank();
+
     @Data
     public static class Channels {
 
@@ -82,5 +84,17 @@ public class SearchChannelProperties {
         private String embeddingModel = "qwen3-vl-embedding-2b-local";
 
         private String rerankModel = "rerank-noop";
+    }
+
+    @Data
+    public static class Rerank {
+
+        private boolean enabled = true;
+
+        private int candidateMultiplier = 3;
+
+        private int maxCandidates = 12;
+
+        private boolean filterVisualNavigationNoise = true;
     }
 }

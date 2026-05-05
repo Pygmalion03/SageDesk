@@ -70,6 +70,7 @@ public class IntentParallelRetriever extends AbstractParallelRetriever<IntentPar
             return retrieverService.retrieve(
                     RetrieveRequest.builder()
                             .collectionName(node.getCollectionName())
+                            .embeddingModel(node.getEmbeddingModel())
                             .query(question)
                             .topK(task.intentTopK())
                             .build()

@@ -32,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -263,6 +264,7 @@ public class MultiChannelRetrievalEngine {
                     .flatMap(r -> r.getChunks().stream())
                     .collect(Collectors.toList());
             RagTraceContext.putNodeExtra("postProcessors", List.of());
+            RagTraceContext.putNodeExtra("postProcessorResults", List.of());
             RagTraceContext.putNodeExtra("resultCount", rawChunks.size());
             RagTraceContext.putNodeExtra("resultChunkIds", summarizeChunkIds(rawChunks));
             RagTraceContext.putNodeExtra("resultChunks", summarizeChunks(rawChunks));
@@ -279,13 +281,18 @@ public class MultiChannelRetrievalEngine {
                 "postProcessors",
                 enabledProcessors.stream().map(SearchResultPostProcessor::getName).toList()
         );
+        List<Map<String, Object>> postProcessorResults = new ArrayList<>();
 
         // 依次执行处理器
         for (SearchResultPostProcessor processor : enabledProcessors) {
+            int beforeSize = chunks.size();
+            int afterSize = beforeSize;
+            String status = "SUCCESS";
+            String errorMessage = null;
+            long startMillis = System.currentTimeMillis();
             try {
-                int beforeSize = chunks.size();
                 chunks = processor.process(chunks, results, context);
-                int afterSize = chunks.size();
+                afterSize = chunks.size();
 
                 log.info("后置处理器 {} 完成 - 输入: {} 个 Chunk, 输出: {} 个 Chunk, 变化: {}",
                         processor.getName(),
@@ -293,7 +300,25 @@ public class MultiChannelRetrievalEngine {
                         afterSize,
                         (afterSize - beforeSize > 0 ? "+" : "") + (afterSize - beforeSize)
                 );
+                postProcessorResults.add(summarizePostProcessor(
+                        processor.getName(),
+                        beforeSize,
+                        afterSize,
+                        System.currentTimeMillis() - startMillis,
+                        status,
+                        null
+                ));
             } catch (Exception e) {
+                status = "ERROR";
+                errorMessage = e.getClass().getSimpleName() + ": " + e.getMessage();
+                postProcessorResults.add(summarizePostProcessor(
+                        processor.getName(),
+                        beforeSize,
+                        afterSize,
+                        System.currentTimeMillis() - startMillis,
+                        status,
+                        errorMessage
+                ));
                 log.error("后置处理器 {} 执行失败，跳过该处理器", processor.getName(), e);
                 // 继续执行下一个处理器，不中断整个链
             }
@@ -302,6 +327,7 @@ public class MultiChannelRetrievalEngine {
         log.info("后置处理器链执行完成 - 初始: {} 个 Chunk, 最终: {} 个 Chunk",
                 initialSize, chunks.size());
 
+        RagTraceContext.putNodeExtra("postProcessorResults", postProcessorResults);
         RagTraceContext.putNodeExtra("resultCount", chunks.size());
         RagTraceContext.putNodeExtra("resultChunkIds", summarizeChunkIds(chunks));
         RagTraceContext.putNodeExtra("resultChunks", summarizeChunks(chunks));
@@ -373,6 +399,24 @@ public class MultiChannelRetrievalEngine {
                             });
                 })
                 .toList();
+    }
+
+    private Map<String, Object> summarizePostProcessor(String name,
+                                                       int inputCount,
+                                                       int outputCount,
+                                                       long latencyMs,
+                                                       String status,
+                                                       String errorMessage) {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("name", name);
+        summary.put("inputCount", inputCount);
+        summary.put("outputCount", outputCount);
+        summary.put("latencyMs", latencyMs);
+        summary.put("status", status);
+        if (errorMessage != null) {
+            summary.put("error", errorMessage);
+        }
+        return summary;
     }
 
     private List<Map<String, Object>> summarizeChannelResults(List<SearchChannelResult> results) {

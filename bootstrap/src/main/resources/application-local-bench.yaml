@@ -9,14 +9,14 @@ spring:
 
 ai:
   chat:
-    default-model: qwen3-5-local-main
-    deep-thinking-model: qwen3-5-local-main
+    default-model: qwen-plus
+    deep-thinking-model: qwen3-max
 
   embedding:
     default-model: qwen-emb-local-small
 
   rerank:
-    default-model: qwen3-rerank-hf-small
+    default-model: ${RAG_RERANK_DEFAULT:minilm-rerank-local}
 
 rag:
   default:
@@ -27,7 +27,7 @@ rag:
     enabled: true
     auto-detect: true
     fallback-to-tika-on-error: true
-    provider: ${PADDLE_PROVIDER:bridge}
+    provider: ${PADDLE_PROVIDER:official}
     request-mode: ${PADDLE_REQUEST_MODE:sync}
     api-key: ${PADDLE_API_KEY:}
     sync-url: ${PADDLE_SYNC_URL:https://z9y7xan5l6yevav5.aistudio-app.com/layout-parsing}
@@ -63,6 +63,6 @@ rag:
       visual-global:
         enabled: true
         embedding-model: qwen3-vl-embedding-2b-local
-        rerank-model: qwen3-vl-rerank-local
+        rerank-model: ${RAG_VISUAL_RERANK_MODEL:minilm-rerank-local}
       intent-directed-visual:
         embedding-model: qwen3-vl-embedding-2b-local

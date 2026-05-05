@@ -18,6 +18,8 @@
 package com.nageoffer.ai.ragent.rag.core.retrieve.postprocessor;
 
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
+import com.nageoffer.ai.ragent.framework.trace.RagTraceContext;
+import com.nageoffer.ai.ragent.framework.trace.RagTraceNode;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannelResult;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchChannelType;
 import com.nageoffer.ai.ragent.rag.core.retrieve.channel.SearchContext;
@@ -49,9 +51,11 @@ public class DeduplicationPostProcessor implements SearchResultPostProcessor {
     }
 
     @Override
+    @RagTraceNode(name = "deduplication", type = "POST_PROCESS")
     public List<RetrievedChunk> process(List<RetrievedChunk> chunks,
                                         List<SearchChannelResult> results,
                                         SearchContext context) {
+        RagTraceContext.putNodeExtra("inputCount", chunks.size());
         Map<String, RetrievedChunk> chunkMap = new LinkedHashMap<>();
 
         results.stream()
@@ -73,7 +77,10 @@ public class DeduplicationPostProcessor implements SearchResultPostProcessor {
                     }
                 });
 
-        return new ArrayList<>(chunkMap.values());
+        List<RetrievedChunk> deduplicatedChunks = new ArrayList<>(chunkMap.values());
+        RagTraceContext.putNodeExtra("outputCount", deduplicatedChunks.size());
+        RagTraceContext.putNodeExtra("removedCount", chunks.size() - deduplicatedChunks.size());
+        return deduplicatedChunks;
     }
 
     private String generateChunkKey(RetrievedChunk chunk) {

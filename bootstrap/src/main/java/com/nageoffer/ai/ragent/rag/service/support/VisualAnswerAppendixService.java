@@ -64,7 +64,7 @@ public class VisualAnswerAppendixService {
                 .filter(Objects::nonNull)
                 .filter(RetrievedChunk::isVisual)
                 .forEach(chunk -> {
-                    String imageUri = extractImageUri(chunk);
+                    String imageUri = extractAppendixImageUri(chunk);
                     if (StrUtil.isBlank(imageUri)) {
                         return;
                     }
@@ -81,7 +81,7 @@ public class VisualAnswerAppendixService {
         }
 
         List<AppendixImage> appendixImages = selectedChunks.stream()
-                .map(chunk -> new AppendixImage(chunk, mediaPreviewService.buildPreviewUrl(extractImageUri(chunk))))
+                .map(chunk -> new AppendixImage(chunk, mediaPreviewService.buildPreviewUrl(extractAppendixImageUri(chunk))))
                 .filter(image -> StrUtil.isNotBlank(image.previewUrl()))
                 .toList();
         if (appendixImages.isEmpty()) {
@@ -112,6 +112,11 @@ public class VisualAnswerAppendixService {
 
     private List<RetrievedChunk> selectAppendixChunks(Collection<RetrievedChunk> chunks, int imageLimit) {
         List<RetrievedChunk> candidates = new ArrayList<>(chunks);
+        candidates = deduplicateSamePageWithRichEvidence(candidates);
+        candidates = filterDebugOverlayImages(candidates);
+        candidates = filterVeryLowScoreVisuals(candidates);
+        candidates = filterLowScoreVisualOutliers(candidates);
+        candidates = filterGenericCategoryWhenSpecificProductPageExists(candidates);
         boolean hasRichPageEvidence = candidates.stream().anyMatch(this::isRichPageEvidence);
         if (hasRichPageEvidence) {
             candidates = candidates.stream()
@@ -132,12 +137,109 @@ public class VisualAnswerAppendixService {
                 .toList();
     }
 
+    private List<RetrievedChunk> deduplicateSamePageWithRichEvidence(List<RetrievedChunk> candidates) {
+        Map<String, RetrievedChunk> bestRichByPage = new LinkedHashMap<>();
+        for (RetrievedChunk chunk : candidates) {
+            if (!isRichPageEvidence(chunk)) {
+                continue;
+            }
+            String pageKey = pageDedupeKey(chunk);
+            if (StrUtil.isBlank(pageKey)) {
+                continue;
+            }
+            RetrievedChunk existing = bestRichByPage.get(pageKey);
+            if (existing == null || preferVisualEvidence(chunk, existing)) {
+                bestRichByPage.put(pageKey, chunk);
+            }
+        }
+        if (bestRichByPage.isEmpty()) {
+            return candidates;
+        }
+
+        return candidates.stream()
+                .filter(chunk -> {
+                    String pageKey = pageDedupeKey(chunk);
+                    if (StrUtil.isBlank(pageKey) || !bestRichByPage.containsKey(pageKey)) {
+                        return true;
+                    }
+                    return bestRichByPage.get(pageKey) == chunk;
+                })
+                .toList();
+    }
+
+    private List<RetrievedChunk> filterDebugOverlayImages(List<RetrievedChunk> candidates) {
+        List<RetrievedChunk> filtered = candidates.stream()
+                .filter(chunk -> !isDebugOverlayImage(chunk))
+                .toList();
+        return filtered;
+    }
+
+    private List<RetrievedChunk> filterVeryLowScoreVisuals(List<RetrievedChunk> candidates) {
+        float minScore = ragDefaultProperties.getVisualAnswerMinScore() == null
+                ? 0.05f
+                : Math.max(ragDefaultProperties.getVisualAnswerMinScore(), 0f);
+        if (minScore <= 0f) {
+            return candidates;
+        }
+        return candidates.stream()
+                .filter(chunk -> chunk.getScore() == null || scoreValue(chunk) >= minScore)
+                .toList();
+    }
+
+    private List<RetrievedChunk> filterLowScoreVisualOutliers(List<RetrievedChunk> candidates) {
+        if (candidates.size() <= 1) {
+            return candidates;
+        }
+        float bestScore = candidates.stream()
+                .map(this::scoreValue)
+                .max(Float::compare)
+                .orElse(0f);
+        if (bestScore < 0.3f) {
+            return candidates;
+        }
+
+        float threshold = Math.max(0.3f, bestScore * 0.5f);
+        List<RetrievedChunk> filtered = candidates.stream()
+                .filter(chunk -> scoreValue(chunk) >= threshold)
+                .toList();
+        return filtered.isEmpty() ? candidates : filtered;
+    }
+
+    private List<RetrievedChunk> filterGenericCategoryWhenSpecificProductPageExists(List<RetrievedChunk> candidates) {
+        boolean hasSpecificProductPage = candidates.stream()
+                .anyMatch(this::isSpecificProductPageEvidence);
+        if (!hasSpecificProductPage) {
+            return candidates;
+        }
+        List<RetrievedChunk> filtered = candidates.stream()
+                .filter(chunk -> !isGenericCategoryOverview(chunk))
+                .toList();
+        return filtered.isEmpty() ? candidates : filtered;
+    }
+
     private String extractImageUri(RetrievedChunk chunk) {
         if (chunk == null || chunk.getMetadata() == null) {
             return null;
         }
         Object imageUri = chunk.getMetadata().get("image_uri");
         return imageUri == null ? null : String.valueOf(imageUri);
+    }
+
+    private String extractAppendixImageUri(RetrievedChunk chunk) {
+        String imageUri = extractImageUri(chunk);
+        if (!isLocalCropImage(imageUri)) {
+            return imageUri;
+        }
+
+        String sourceLocation = metadataText(chunk, "source_location");
+        if (isPreviewableImageUri(sourceLocation)) {
+            return sourceLocation;
+        }
+        String sourcePageImage = metadataText(chunk, "source_page_image");
+        if (isPreviewableImageUri(sourcePageImage)) {
+            return sourcePageImage;
+        }
+        return imageUri;
     }
 
     private String extractSummary(RetrievedChunk chunk) {
@@ -261,14 +363,54 @@ public class VisualAnswerAppendixService {
         return "uri:" + imageUri;
     }
 
+    private String pageDedupeKey(RetrievedChunk chunk) {
+        String pageNo = metadataText(chunk, "page_no");
+        if (StrUtil.isBlank(pageNo)) {
+            return null;
+        }
+        String scope = metadataText(chunk, "task_id");
+        if (StrUtil.isBlank(scope)) {
+            scope = metadataText(chunk, "source_location");
+        }
+        return "page:" + StrUtil.blankToDefault(scope, "") + ":" + pageNo;
+    }
+
     private int visualPriority(RetrievedChunk chunk) {
+        if (isDebugOverlayImage(chunk)) {
+            return 3;
+        }
         if (isRichPageEvidence(chunk)) {
             return 0;
         }
         return isSimpleImageCrop(chunk) ? 2 : 1;
     }
 
+    private boolean preferVisualEvidence(RetrievedChunk candidate, RetrievedChunk existing) {
+        int priority = Integer.compare(visualPriority(candidate), visualPriority(existing));
+        if (priority != 0) {
+            return priority < 0;
+        }
+        return scoreValue(candidate) > scoreValue(existing);
+    }
+
+    private boolean isDebugOverlayImage(RetrievedChunk chunk) {
+        String imageUri = StrUtil.emptyIfNull(extractImageUri(chunk)).replace('\\', '/');
+        String sourceImageName = StrUtil.emptyIfNull(sourceImageName(chunk, extractImageUri(chunk))).replace('\\', '/');
+        String combined = (imageUri + " " + sourceImageName).toLowerCase(Locale.ROOT);
+        return combined.contains("layout_det_res")
+                || combined.contains("layout_res")
+                || combined.contains("det_res.jpg")
+                || combined.contains("ocr_res")
+                || combined.contains("vis_result")
+                || combined.contains("_annotated")
+                || (combined.contains("paddle_api_runtime") && combined.contains("/output/"))
+                || (combined.contains("paddle_bridge_runtime") && combined.contains("/output/"));
+    }
+
     private boolean isSimpleImageCrop(RetrievedChunk chunk) {
+        if (isLocalCropImage(extractImageUri(chunk))) {
+            return true;
+        }
         String sourceImageName = sourceImageName(chunk, extractImageUri(chunk));
         if (StrUtil.isBlank(sourceImageName)) {
             return false;
@@ -281,13 +423,7 @@ public class VisualAnswerAppendixService {
         if (chunk == null) {
             return false;
         }
-        String raw = StrUtil.emptyIfNull(chunk.getText());
-        if (chunk.getMetadata() != null) {
-            Object summary = chunk.getMetadata().get("summary");
-            if (summary != null) {
-                raw += " " + summary;
-            }
-        }
+        String raw = textWithSummary(chunk);
         if (StrUtil.isBlank(raw)) {
             return false;
         }
@@ -301,6 +437,53 @@ public class VisualAnswerAppendixService {
                 || raw.contains("入口参数")
                 || raw.contains("价格")
                 || raw.contains("型号");
+    }
+
+    private boolean isSpecificProductPageEvidence(RetrievedChunk chunk) {
+        String raw = textWithSummary(chunk);
+        if (StrUtil.isBlank(raw)) {
+            return false;
+        }
+        String lower = raw.toLowerCase(Locale.ROOT);
+        boolean productSeriesPage = lower.contains("yd-338cc series")
+                || lower.contains("yd338cc series");
+        boolean detailedSpecificationTable = lower.contains("technical specifications")
+                && (lower.contains("feed width")
+                || lower.contains("paper capacity")
+                || lower.contains("disc capacity")
+                || lower.contains("price usd"));
+        return productSeriesPage || detailedSpecificationTable;
+    }
+
+    private boolean isGenericCategoryOverview(RetrievedChunk chunk) {
+        String raw = textWithSummary(chunk);
+        if (StrUtil.isBlank(raw)) {
+            return false;
+        }
+        String lower = raw.toLowerCase(Locale.ROOT);
+        boolean categoryOverview = lower.contains("high-power office shredders")
+                || lower.contains("representative model")
+                || lower.contains("representative models")
+                || lower.contains("featured models")
+                || lower.contains("overview suitable for")
+                || raw.contains("大功率办公碎纸机")
+                || raw.contains("大型办公系列")
+                || raw.contains("代表型号");
+        return categoryOverview && !isSpecificProductPageEvidence(chunk);
+    }
+
+    private String textWithSummary(RetrievedChunk chunk) {
+        if (chunk == null) {
+            return "";
+        }
+        String raw = StrUtil.emptyIfNull(chunk.getText());
+        if (chunk.getMetadata() != null) {
+            Object summary = chunk.getMetadata().get("summary");
+            if (summary != null) {
+                raw += " " + summary;
+            }
+        }
+        return raw;
     }
 
     private float scoreValue(RetrievedChunk chunk) {
@@ -342,6 +525,33 @@ public class VisualAnswerAppendixService {
         }
         Object value = chunk.getMetadata().get(key);
         return value == null ? null : String.valueOf(value);
+    }
+
+    private boolean isLocalCropImage(String imageUri) {
+        if (StrUtil.isBlank(imageUri)) {
+            return false;
+        }
+        String normalized = imageUri.replace('\\', '/').toLowerCase(Locale.ROOT);
+        return normalized.contains("/paddle_bridge_runtime/crops/")
+                || normalized.contains("/paddle_api_runtime/crops/")
+                || normalized.contains("/crops/");
+    }
+
+    private boolean isPreviewableImageUri(String imageUri) {
+        if (StrUtil.isBlank(imageUri)) {
+            return false;
+        }
+        String normalized = imageUri.trim().toLowerCase(Locale.ROOT);
+        return normalized.startsWith("s3://")
+                || normalized.startsWith("http://")
+                || normalized.startsWith("https://")
+                || normalized.startsWith("file:/")
+                || normalized.endsWith(".png")
+                || normalized.endsWith(".jpg")
+                || normalized.endsWith(".jpeg")
+                || normalized.endsWith(".webp")
+                || normalized.endsWith(".gif")
+                || normalized.endsWith(".bmp");
     }
 
     private String buildAltText(RetrievedChunk chunk, int index) {

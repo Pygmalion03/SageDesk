@@ -34,7 +34,7 @@ public class DocumentAnalysisProperties {
 
     private boolean fallbackToTikaOnError = true;
 
-    private String provider = "bridge";
+    private String provider = "official";
 
     private String requestMode = "sync";
 

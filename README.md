@@ -148,7 +148,7 @@ $env:PADDLE_REQUEST_MODE="async"
 $env:PADDLE_RESULT_DOWNLOAD_DIR="scripts/paddle_api_runtime"
 ```
 
-Start local Hugging Face retrieval bridges:
+Document analysis uses the online Paddle API by default. Local runtime only needs the retrieval-side bridges: text embedding, visual embedding, and one rerank service.
 
 ```powershell
 .\scripts\start_hf_embedding_bridge.ps1
@@ -156,10 +156,18 @@ Start local Hugging Face retrieval bridges:
 .\scripts\start_hf_rerank_bridge.ps1
 ```
 
-Or start all local AI bridge processes, including Paddle document analysis:
+You can start the three local retrieval bridges together:
 
 ```powershell
-.\scripts\start_local_ai_bridges.ps1
+.\scripts\start_local_hf_bridges.ps1
+```
+
+The default rerank service is the lightweight MiniLM cross-encoder. To force the heavier Qwen3 text reranker:
+
+```powershell
+$env:RAG_RERANK_DEFAULT="qwen3-rerank-hf-small"
+$env:HF_RERANK_MODEL="Qwen/Qwen3-Reranker-0.6B"
+$env:LOCAL_HF_RERANK_TIMEOUT_SECONDS="60"
 ```
 
 The default backend context path is:
