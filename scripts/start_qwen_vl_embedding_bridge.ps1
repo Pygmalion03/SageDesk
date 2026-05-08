@@ -1,7 +1,7 @@
 param(
     [string]$Python = "python",
     [string]$BindHost = "127.0.0.1",
-    [int]$Port = 8115,
+    [int]$Port = 18115,
     [string]$TorchIndexUrl = $env:RAG_TORCH_INDEX_URL
 )
 

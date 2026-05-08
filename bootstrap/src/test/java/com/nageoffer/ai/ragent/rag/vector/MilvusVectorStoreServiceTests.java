@@ -26,7 +26,9 @@ import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.vector.MilvusVectorStoreService;
 import io.milvus.v2.client.MilvusClientV2;
+import io.milvus.v2.service.vector.request.DeleteReq;
 import io.milvus.v2.service.vector.request.InsertReq;
+import io.milvus.v2.service.vector.response.DeleteResp;
 import io.milvus.v2.service.vector.response.InsertResp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -113,5 +116,39 @@ class MilvusVectorStoreServiceTests {
         ClientException ex = Assertions.assertThrows(ClientException.class,
                 () -> service.indexDocumentChunks("1", "doc-1", List.of(chunk)));
         Assertions.assertTrue(ex.getMessage().contains("1024"));
+    }
+
+    @Test
+    void shouldDeleteDocumentVectorsFromTextAndVisualCollections() {
+        MilvusClientV2 milvusClient = mock(MilvusClientV2.class);
+        KnowledgeBaseMapper kbMapper = mock(KnowledgeBaseMapper.class);
+        RAGDefaultProperties defaultProperties = new RAGDefaultProperties();
+        defaultProperties.setImageCollectionSuffix("_images");
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+        MilvusVectorStoreService service = new MilvusVectorStoreService(
+                milvusClient,
+                kbMapper,
+                defaultProperties,
+                dimensionResolver
+        );
+
+        KnowledgeBaseDO kb = KnowledgeBaseDO.builder()
+                .id(101L)
+                .collectionName("yuedu")
+                .embeddingModel("qwen3-vl-embedding-1024")
+                .build();
+        when(kbMapper.selectById("101")).thenReturn(kb);
+        DeleteResp deleteResp = mock(DeleteResp.class);
+        when(deleteResp.getDeleteCnt()).thenReturn(1L);
+        when(milvusClient.delete(any(DeleteReq.class))).thenReturn(deleteResp);
+
+        service.deleteDocumentVectors("101", "201");
+
+        ArgumentCaptor<DeleteReq> captor = ArgumentCaptor.forClass(DeleteReq.class);
+        verify(milvusClient, times(2)).delete(captor.capture());
+        Assertions.assertEquals("yuedu", captor.getAllValues().get(0).getCollectionName());
+        Assertions.assertEquals("yuedu_images", captor.getAllValues().get(1).getCollectionName());
+        Assertions.assertTrue(captor.getAllValues().get(0).getFilter().contains("metadata[\"task_id\"] == \"201\""));
+        Assertions.assertTrue(captor.getAllValues().get(1).getFilter().contains("metadata[\"doc_id\"] == \"201\""));
     }
 }

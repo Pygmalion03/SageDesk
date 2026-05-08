@@ -38,11 +38,15 @@ import com.nageoffer.ai.ragent.rag.core.prompt.PromptTemplateLoader;
 import com.nageoffer.ai.ragent.rag.service.ConversationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
 import static com.nageoffer.ai.ragent.rag.constant.RAGConstant.CONVERSATION_TITLE_PROMPT_PATH;
@@ -62,6 +66,10 @@ public class ConversationServiceImpl implements ConversationService {
     private final MemoryProperties memoryProperties;
     private final PromptTemplateLoader promptTemplateLoader;
     private final LLMService llmService;
+
+    @Autowired
+    @Qualifier("conversationTitleExecutor")
+    private Executor conversationTitleExecutor = Runnable::run;
 
     @Override
     public List<ConversationVO> listByUserId(String userId) {
@@ -105,7 +113,7 @@ public class ConversationServiceImpl implements ConversationService {
         );
 
         if (existing == null) {
-            String title = generateTitleFromQuestion(question);
+            String title = cheapTitleFromQuestion(question);
             ConversationDO record = ConversationDO.builder()
                     .conversationId(conversationId)
                     .userId(userId)
@@ -113,6 +121,7 @@ public class ConversationServiceImpl implements ConversationService {
                     .lastTime(request.getLastTime())
                     .build();
             conversationMapper.insert(record);
+            scheduleAsyncTitleGeneration(conversationId, userId, question, title);
             return;
         }
 
@@ -183,16 +192,67 @@ public class ConversationServiceImpl implements ConversationService {
         );
     }
 
-    private String generateTitleFromQuestion(String question) {
-        int maxLen = memoryProperties.getTitleMaxLength();
-        if (maxLen <= 0) {
-            maxLen = 30;
+    private void scheduleAsyncTitleGeneration(String conversationId, String userId, String question, String cheapTitle) {
+        if (StrUtil.isBlank(question)) {
+            return;
         }
+        try {
+            conversationTitleExecutor.execute(() -> generateAndApplyTitle(conversationId, userId, question, cheapTitle));
+        } catch (RejectedExecutionException ex) {
+            log.warn("Conversation title async task rejected, conversationId={}", conversationId, ex);
+        } catch (RuntimeException ex) {
+            log.warn("Conversation title async task submit failed, conversationId={}", conversationId, ex);
+        }
+    }
+
+    private void generateAndApplyTitle(String conversationId, String userId, String question, String cheapTitle) {
+        ConversationDO before = findExistingConversation(conversationId, userId);
+        if (!isAutoTitleCandidate(before, cheapTitle)) {
+            return;
+        }
+
+        String generatedTitle = generateTitleFromQuestion(question);
+        if (StrUtil.isBlank(generatedTitle)) {
+            return;
+        }
+
+        ConversationDO latest = findExistingConversation(conversationId, userId);
+        if (!isAutoTitleCandidate(latest, cheapTitle)) {
+            return;
+        }
+
+        latest.setTitle(generatedTitle);
+        conversationMapper.updateById(latest);
+    }
+
+    private ConversationDO findExistingConversation(String conversationId, String userId) {
+        return conversationMapper.selectOne(
+                Wrappers.lambdaQuery(ConversationDO.class)
+                        .eq(ConversationDO::getConversationId, conversationId)
+                        .eq(ConversationDO::getUserId, userId)
+                        .eq(ConversationDO::getDeleted, 0)
+        );
+    }
+
+    private boolean isAutoTitleCandidate(ConversationDO record, String cheapTitle) {
+        return record != null && StrUtil.equals(record.getTitle(), cheapTitle);
+    }
+
+    private String cheapTitleFromQuestion(String question) {
+        String title = normalizeTitleText(question);
+        if (StrUtil.isBlank(title)) {
+            return "\u65b0\u5bf9\u8bdd";
+        }
+        return truncateByCodePoint(title, safeTitleMaxLength());
+    }
+
+    private String generateTitleFromQuestion(String question) {
+        int maxLen = safeTitleMaxLength();
         String prompt = promptTemplateLoader.render(
                 CONVERSATION_TITLE_PROMPT_PATH,
                 Map.of(
                         "title_max_chars", String.valueOf(maxLen),
-                        "question", question
+                        "question", StrUtil.nullToEmpty(question)
                 )
         );
 
@@ -204,10 +264,41 @@ public class ConversationServiceImpl implements ConversationService {
                     .thinking(false)
                     .build();
 
-            return llmService.chat(request);
+            return normalizeGeneratedTitle(llmService.chat(request));
         } catch (Exception ex) {
             log.warn("生成会话标题失败", ex);
-            return "新对话";
+            return null;
         }
+    }
+
+    private String normalizeGeneratedTitle(String title) {
+        String normalized = normalizeTitleText(title);
+        if (StrUtil.isBlank(normalized)) {
+            return null;
+        }
+        return truncateByCodePoint(normalized, safeTitleMaxLength());
+    }
+
+    private String normalizeTitleText(String title) {
+        if (StrUtil.isBlank(title)) {
+            return "";
+        }
+        return title.trim().replaceAll("\\s+", " ");
+    }
+
+    private int safeTitleMaxLength() {
+        Integer maxLen = memoryProperties.getTitleMaxLength();
+        if (maxLen == null || maxLen <= 0) {
+            return 30;
+        }
+        return maxLen;
+    }
+
+    private String truncateByCodePoint(String value, int maxLen) {
+        if (value.codePointCount(0, value.length()) <= maxLen) {
+            return value;
+        }
+        int endIndex = value.offsetByCodePoints(0, maxLen);
+        return value.substring(0, endIndex);
     }
 }

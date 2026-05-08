@@ -57,10 +57,185 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class KnowledgeDocumentServiceImplTests {
+
+    @Test
+    void enableShouldOnlyChangeLogicalStateWithoutVectorRewriteAndPromoteKnowledgeBase() {
+        KnowledgeBaseMapper kbMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper docMapper = mock(KnowledgeDocumentMapper.class);
+        DocumentParserSelector parserSelector = mock(DocumentParserSelector.class);
+        ChunkingStrategyFactory chunkingStrategyFactory = mock(ChunkingStrategyFactory.class);
+        FileStorageService fileStorageService = mock(FileStorageService.class);
+        VectorStoreService vectorStoreService = mock(VectorStoreService.class);
+        KnowledgeChunkService knowledgeChunkService = mock(KnowledgeChunkService.class);
+        EmbeddingService embeddingService = mock(EmbeddingService.class);
+        HttpClientHelper httpClientHelper = mock(HttpClientHelper.class);
+        KnowledgeDocumentScheduleService scheduleService = mock(KnowledgeDocumentScheduleService.class);
+        IngestionPipelineService ingestionPipelineService = mock(IngestionPipelineService.class);
+        IngestionPipelineMapper ingestionPipelineMapper = mock(IngestionPipelineMapper.class);
+        IngestionEngine ingestionEngine = mock(IngestionEngine.class);
+        RedissonClient redissonClient = mock(RedissonClient.class);
+        KnowledgeDocumentChunkLogMapper chunkLogMapper = mock(KnowledgeDocumentChunkLogMapper.class);
+        Executor executor = Runnable::run;
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+
+        KnowledgeDocumentServiceImpl service = new KnowledgeDocumentServiceImpl(
+                kbMapper,
+                docMapper,
+                parserSelector,
+                chunkingStrategyFactory,
+                fileStorageService,
+                vectorStoreService,
+                knowledgeChunkService,
+                embeddingService,
+                httpClientHelper,
+                new ObjectMapper(),
+                scheduleService,
+                ingestionPipelineService,
+                ingestionPipelineMapper,
+                ingestionEngine,
+                redissonClient,
+                chunkLogMapper,
+                executor,
+                transactionManager
+        );
+
+        KnowledgeDocumentDO document = KnowledgeDocumentDO.builder()
+                .id(200L)
+                .kbId(10L)
+                .enabled(0)
+                .build();
+        when(docMapper.selectById("200")).thenReturn(document);
+
+        service.enable("200", true);
+
+        Assertions.assertEquals(1, document.getEnabled());
+        verify(docMapper).updateById(document);
+        verify(knowledgeChunkService).updateEnabledByDocId("200", true);
+        verify(kbMapper).update(any(KnowledgeBaseDO.class), any());
+        verifyNoInteractions(vectorStoreService, embeddingService);
+    }
+
+    @Test
+    void disableShouldOnlyChangeLogicalStateWithoutDeletingVectors() {
+        KnowledgeBaseMapper kbMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper docMapper = mock(KnowledgeDocumentMapper.class);
+        DocumentParserSelector parserSelector = mock(DocumentParserSelector.class);
+        ChunkingStrategyFactory chunkingStrategyFactory = mock(ChunkingStrategyFactory.class);
+        FileStorageService fileStorageService = mock(FileStorageService.class);
+        VectorStoreService vectorStoreService = mock(VectorStoreService.class);
+        KnowledgeChunkService knowledgeChunkService = mock(KnowledgeChunkService.class);
+        EmbeddingService embeddingService = mock(EmbeddingService.class);
+        HttpClientHelper httpClientHelper = mock(HttpClientHelper.class);
+        KnowledgeDocumentScheduleService scheduleService = mock(KnowledgeDocumentScheduleService.class);
+        IngestionPipelineService ingestionPipelineService = mock(IngestionPipelineService.class);
+        IngestionPipelineMapper ingestionPipelineMapper = mock(IngestionPipelineMapper.class);
+        IngestionEngine ingestionEngine = mock(IngestionEngine.class);
+        RedissonClient redissonClient = mock(RedissonClient.class);
+        KnowledgeDocumentChunkLogMapper chunkLogMapper = mock(KnowledgeDocumentChunkLogMapper.class);
+        Executor executor = Runnable::run;
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+
+        KnowledgeDocumentServiceImpl service = new KnowledgeDocumentServiceImpl(
+                kbMapper,
+                docMapper,
+                parserSelector,
+                chunkingStrategyFactory,
+                fileStorageService,
+                vectorStoreService,
+                knowledgeChunkService,
+                embeddingService,
+                httpClientHelper,
+                new ObjectMapper(),
+                scheduleService,
+                ingestionPipelineService,
+                ingestionPipelineMapper,
+                ingestionEngine,
+                redissonClient,
+                chunkLogMapper,
+                executor,
+                transactionManager
+        );
+
+        KnowledgeDocumentDO document = KnowledgeDocumentDO.builder()
+                .id(200L)
+                .kbId(10L)
+                .enabled(1)
+                .build();
+        when(docMapper.selectById("200")).thenReturn(document);
+
+        service.enable("200", false);
+
+        Assertions.assertEquals(0, document.getEnabled());
+        verify(docMapper).updateById(document);
+        verify(knowledgeChunkService).updateEnabledByDocId("200", false);
+        verify(vectorStoreService, never()).deleteDocumentVectors(anyString(), anyString());
+        verify(vectorStoreService, never()).indexDocumentChunks(anyString(), anyString(), any());
+        verifyNoInteractions(embeddingService);
+    }
+
+    @Test
+    void disableShouldDemoteKnowledgeBaseFromEnabledChunksInsteadOfStaleDocuments() {
+        KnowledgeBaseMapper kbMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper docMapper = mock(KnowledgeDocumentMapper.class);
+        DocumentParserSelector parserSelector = mock(DocumentParserSelector.class);
+        ChunkingStrategyFactory chunkingStrategyFactory = mock(ChunkingStrategyFactory.class);
+        FileStorageService fileStorageService = mock(FileStorageService.class);
+        VectorStoreService vectorStoreService = mock(VectorStoreService.class);
+        KnowledgeChunkService knowledgeChunkService = mock(KnowledgeChunkService.class);
+        EmbeddingService embeddingService = mock(EmbeddingService.class);
+        HttpClientHelper httpClientHelper = mock(HttpClientHelper.class);
+        KnowledgeDocumentScheduleService scheduleService = mock(KnowledgeDocumentScheduleService.class);
+        IngestionPipelineService ingestionPipelineService = mock(IngestionPipelineService.class);
+        IngestionPipelineMapper ingestionPipelineMapper = mock(IngestionPipelineMapper.class);
+        IngestionEngine ingestionEngine = mock(IngestionEngine.class);
+        RedissonClient redissonClient = mock(RedissonClient.class);
+        KnowledgeDocumentChunkLogMapper chunkLogMapper = mock(KnowledgeDocumentChunkLogMapper.class);
+        Executor executor = Runnable::run;
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+
+        KnowledgeDocumentServiceImpl service = new KnowledgeDocumentServiceImpl(
+                kbMapper,
+                docMapper,
+                parserSelector,
+                chunkingStrategyFactory,
+                fileStorageService,
+                vectorStoreService,
+                knowledgeChunkService,
+                embeddingService,
+                httpClientHelper,
+                new ObjectMapper(),
+                scheduleService,
+                ingestionPipelineService,
+                ingestionPipelineMapper,
+                ingestionEngine,
+                redissonClient,
+                chunkLogMapper,
+                executor,
+                transactionManager
+        );
+
+        KnowledgeDocumentDO document = KnowledgeDocumentDO.builder()
+                .id(200L)
+                .kbId(10L)
+                .enabled(1)
+                .build();
+        when(docMapper.selectById("200")).thenReturn(document);
+        when(docMapper.selectCount(any())).thenReturn(1L);
+        when(knowledgeChunkService.hasEnabledChunksInKnowledgeBase(10L)).thenReturn(false);
+
+        service.enable("200", false);
+
+        ArgumentCaptor<KnowledgeBaseDO> captor = ArgumentCaptor.forClass(KnowledgeBaseDO.class);
+        verify(kbMapper).update(captor.capture(), any());
+        Assertions.assertEquals(0, captor.getValue().getEnabled());
+        verifyNoInteractions(vectorStoreService, embeddingService);
+    }
 
     @Test
     void pipelineProcessShouldPreserveDocumentSourceForTypeDetection() throws Exception {

@@ -132,6 +132,8 @@ public interface KnowledgeChunkService {
      */
     void updateEnabledByDocId(String docId, boolean enabled);
 
+    boolean hasEnabledChunksInKnowledgeBase(Long kbId);
+
     /**
      * 根据文档 ID 查询所有分片列表
      *

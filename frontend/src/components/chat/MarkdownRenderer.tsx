@@ -7,6 +7,7 @@ import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/pris
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { resolveMarkdownImageSrc } from "@/services/markdownImageUrl";
 import { useThemeStore } from "@/stores/themeStore";
 
 interface MarkdownRendererProps {
@@ -75,6 +76,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           void node;
           // eslint-disable-next-line react-hooks/rules-of-hooks
           const [hasError, setHasError] = React.useState(false);
+          const resolvedSrc = resolveMarkdownImageSrc(src) ?? undefined;
 
           if (hasError) {
             return (
@@ -87,7 +89,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
 
           return (
             <img
-              src={src}
+              src={resolvedSrc}
               alt={alt || ""}
               className="my-3 max-w-full rounded-lg"
               onError={() => setHasError(true)}

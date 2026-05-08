@@ -273,8 +273,9 @@ public class PaddleDocumentParser implements DocumentParser {
                     runDir.resolve("page-" + pageNo).resolve("output"),
                     options
             );
+            Map<String, String> safeOutputImages = nonDebugOutputImages(outputImages);
 
-            String imageUri = firstContentImageUri(markdownImages, outputImages);
+            String imageUri = firstContentImageUri(markdownImages, safeOutputImages);
 
             Map<String, Object> blockMetadata = new LinkedHashMap<>();
             blockMetadata.put("provider", "official");
@@ -283,8 +284,8 @@ public class PaddleDocumentParser implements DocumentParser {
             if (!markdownImages.isEmpty()) {
                 blockMetadata.put("markdown_images", markdownImages);
             }
-            if (!outputImages.isEmpty()) {
-                blockMetadata.put("output_images", outputImages);
+            if (!safeOutputImages.isEmpty()) {
+                blockMetadata.put("output_images", safeOutputImages);
             }
 
             visualBlocks.add(StructuredDocument.VisualBlock.builder()
@@ -741,6 +742,20 @@ public class PaddleDocumentParser implements DocumentParser {
                 .filter(StringUtils::hasText)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private Map<String, String> nonDebugOutputImages(Map<String, String> outputImages) {
+        if (outputImages == null || outputImages.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> filtered = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : outputImages.entrySet()) {
+            if (entry == null || isLayoutDebugImage(entry.getKey()) || !StringUtils.hasText(entry.getValue())) {
+                continue;
+            }
+            filtered.put(entry.getKey(), entry.getValue());
+        }
+        return filtered;
     }
 
     private String largestImageUri(Map<String, String> images) {

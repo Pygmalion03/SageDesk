@@ -18,6 +18,7 @@
 package com.nageoffer.ai.ragent.ingestion.node;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.JsonObject;
 import com.nageoffer.ai.ragent.core.chunk.VectorChunk;
 import com.nageoffer.ai.ragent.ingestion.domain.context.IngestionContext;
 import com.nageoffer.ai.ragent.ingestion.domain.pipeline.NodeConfig;
@@ -26,15 +27,19 @@ import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceId;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorStoreAdmin;
 import io.milvus.v2.client.MilvusClientV2;
+import io.milvus.v2.service.vector.request.InsertReq;
 import io.milvus.v2.service.vector.response.InsertResp;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class IndexerNodeTests {
@@ -78,5 +83,96 @@ class IndexerNodeTests {
                 .build());
 
         Assertions.assertTrue(result.isSuccess());
+    }
+
+    @Test
+    void shouldSkipIndexingWhenKnowledgeBaseDisabled() {
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        MilvusClientV2 milvusClient = mock(MilvusClientV2.class);
+
+        RAGDefaultProperties properties = new RAGDefaultProperties();
+        properties.setDimension(1024);
+        properties.setMetricType("COSINE");
+
+        IndexerNode node = new IndexerNode(
+                new ObjectMapper(),
+                vectorStoreAdmin,
+                milvusClient,
+                properties
+        );
+
+        IngestionContext context = IngestionContext.builder()
+                .taskId("doc-1")
+                .pipelineId("pipeline-1")
+                .metadata(Map.of("knowledgeBaseEnabled", false))
+                .vectorSpaceId(VectorSpaceId.builder().logicalName("kb_collection").build())
+                .chunks(List.of(VectorChunk.builder()
+                        .chunkId("chunk-1")
+                        .index(0)
+                        .content("Ragent AI uses multi-channel retrieval.")
+                        .embedding(new float[1024])
+                        .build()))
+                .build();
+
+        NodeResult result = node.execute(context, NodeConfig.builder()
+                .nodeId("indexer")
+                .nodeType("indexer")
+                .build());
+
+        Assertions.assertTrue(result.isSuccess());
+        verify(vectorStoreAdmin, never()).ensureVectorSpace(any());
+        verify(milvusClient, never()).insert(any());
+    }
+
+    @Test
+    void shouldPersistKnowledgeScopeMetadataForPipelineVectors() {
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        MilvusClientV2 milvusClient = mock(MilvusClientV2.class);
+        InsertResp insertResp = mock(InsertResp.class);
+        when(vectorStoreAdmin.vectorSpaceExists(any())).thenReturn(true);
+        when(milvusClient.insert(any())).thenReturn(insertResp);
+        when(insertResp.getInsertCnt()).thenReturn(1L);
+
+        RAGDefaultProperties properties = new RAGDefaultProperties();
+        properties.setDimension(1024);
+        properties.setMetricType("COSINE");
+
+        IndexerNode node = new IndexerNode(
+                new ObjectMapper(),
+                vectorStoreAdmin,
+                milvusClient,
+                properties
+        );
+
+        IngestionContext context = IngestionContext.builder()
+                .taskId("201")
+                .pipelineId("pipeline-1")
+                .metadata(Map.of(
+                        "kb_id", "101",
+                        "doc_id", "201",
+                        "embeddingModel", "qwen-emb-8b"
+                ))
+                .vectorSpaceId(VectorSpaceId.builder().logicalName("kb_collection").build())
+                .chunks(List.of(VectorChunk.builder()
+                        .chunkId("chunk-1")
+                        .index(0)
+                        .content("Ragent AI uses multi-channel retrieval.")
+                        .embedding(new float[1024])
+                        .build()))
+                .build();
+
+        NodeResult result = node.execute(context, NodeConfig.builder()
+                .nodeId("indexer")
+                .nodeType("indexer")
+                .build());
+
+        Assertions.assertTrue(result.isSuccess());
+        ArgumentCaptor<InsertReq> captor = ArgumentCaptor.forClass(InsertReq.class);
+        verify(milvusClient).insert(captor.capture());
+        JsonObject row = (JsonObject) captor.getValue().getData().get(0);
+        JsonObject metadata = row.getAsJsonObject("metadata");
+        Assertions.assertEquals("101", metadata.get("kb_id").getAsString());
+        Assertions.assertEquals("201", metadata.get("doc_id").getAsString());
+        Assertions.assertEquals("201", metadata.get("task_id").getAsString());
     }
 }

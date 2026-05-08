@@ -314,6 +314,7 @@ class PaddleDocumentParserContractTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void shouldPreferPageOutputImageOverMarkdownCrop() throws Exception {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/api/v2/ocr/jobs", exchange -> {
@@ -365,6 +366,13 @@ class PaddleDocumentParserContractTests {
 
         Assertions.assertEquals("https://example.com/page.jpg",
                 result.document().getVisualBlocks().get(0).getImageUri());
+        Map<String, String> outputImages = (Map<String, String>) result.document()
+                .getVisualBlocks()
+                .get(0)
+                .getMetadata()
+                .get("output_images");
+        Assertions.assertEquals("https://example.com/page.jpg", outputImages.get("page_18.jpg"));
+        Assertions.assertFalse(outputImages.containsKey("layout_det_res.jpg"));
     }
 
     @Test

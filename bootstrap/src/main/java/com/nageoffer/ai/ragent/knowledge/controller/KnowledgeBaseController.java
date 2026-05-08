@@ -18,20 +18,22 @@
 package com.nageoffer.ai.ragent.knowledge.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.nageoffer.ai.ragent.framework.convention.Result;
+import com.nageoffer.ai.ragent.framework.web.Results;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBaseCreateRequest;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBasePageRequest;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBaseUpdateRequest;
 import com.nageoffer.ai.ragent.knowledge.controller.vo.KnowledgeBaseVO;
-import com.nageoffer.ai.ragent.framework.convention.Result;
-import com.nageoffer.ai.ragent.framework.web.Results;
 import com.nageoffer.ai.ragent.knowledge.service.KnowledgeBaseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -59,6 +61,16 @@ public class KnowledgeBaseController {
     public Result<Void> renameKnowledgeBase(@PathVariable("kb-id") String kbId,
                                             @RequestBody KnowledgeBaseUpdateRequest requestParam) {
         knowledgeBaseService.rename(kbId, requestParam);
+        return Results.success();
+    }
+
+    /**
+     * 启用/禁用知识库
+     */
+    @PatchMapping("/knowledge-base/{kb-id}/enable")
+    public Result<Void> enableKnowledgeBase(@PathVariable("kb-id") String kbId,
+                                            @RequestParam("value") boolean enabled) {
+        knowledgeBaseService.enable(kbId, enabled);
         return Results.success();
     }
 

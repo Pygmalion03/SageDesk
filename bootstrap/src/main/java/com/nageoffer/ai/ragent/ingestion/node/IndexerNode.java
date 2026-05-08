@@ -77,6 +77,9 @@ public class IndexerNode implements IngestionNode {
 
     @Override
     public NodeResult execute(IngestionContext context, NodeConfig config) {
+        if (!isIndexingEnabled(context)) {
+            return NodeResult.ok("Knowledge base or document disabled, skipped indexing");
+        }
         List<VectorChunk> chunks = context.getChunks();
         List<VectorChunk> visualChunks = context.getVisualChunks();
         boolean hasTextChunks = chunks != null && !chunks.isEmpty();
@@ -117,6 +120,15 @@ public class IndexerNode implements IngestionNode {
         }
 
         return NodeResult.ok("Indexed text chunks=" + textRows + ", visual chunks=" + imageRows);
+    }
+
+    private boolean isIndexingEnabled(IngestionContext context) {
+        Map<String, Object> metadata = context.getMetadata();
+        if (metadata == null || metadata.isEmpty()) {
+            return true;
+        }
+        return asBoolean(metadata.get("knowledgeBaseEnabled"), true)
+                && asBoolean(metadata.get("documentEnabled"), true);
     }
 
     private IndexerSettings parseSettings(JsonNode node) {
@@ -243,6 +255,7 @@ public class IndexerNode implements IngestionNode {
             metadata.addProperty("chunk_index", chunk.getIndex());
             metadata.addProperty("task_id", context.getTaskId());
             metadata.addProperty("pipeline_id", context.getPipelineId());
+            addScopeMetadata(metadata, mergedMetadata, context);
             DocumentSource source = context.getSource();
             if (source != null && source.getType() != null) {
                 metadata.addProperty("source_type", source.getType().getValue());
@@ -307,6 +320,30 @@ public class IndexerNode implements IngestionNode {
     private void addMetadataValue(JsonObject metadata, String field, Object value) {
         JsonElement element = GSON.toJsonTree(value);
         metadata.add(field, element);
+    }
+
+    private void addScopeMetadata(JsonObject metadata, Map<String, Object> mergedMetadata, IngestionContext context) {
+        Object kbId = mergedMetadata.get("kb_id");
+        if (kbId != null) {
+            addMetadataValue(metadata, "kb_id", kbId);
+        }
+        Object docId = mergedMetadata.get("doc_id");
+        if (docId == null && context != null && StringUtils.hasText(context.getTaskId())) {
+            docId = context.getTaskId();
+        }
+        if (docId != null) {
+            addMetadataValue(metadata, "doc_id", docId);
+        }
+    }
+
+    private boolean asBoolean(Object value, boolean defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        return Boolean.parseBoolean(value.toString());
     }
 
     private JsonArray toJsonArray(float[] vector) {

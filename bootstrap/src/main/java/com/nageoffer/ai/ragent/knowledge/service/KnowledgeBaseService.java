@@ -52,6 +52,14 @@ public interface KnowledgeBaseService {
     void rename(String kbId, KnowledgeBaseUpdateRequest requestParam);
 
     /**
+     * 启用或禁用知识库
+     *
+     * @param kbId    知识库ID
+     * @param enabled 是否启用
+     */
+    void enable(String kbId, boolean enabled);
+
+    /**
      * 删除知识库
      *
      * @param kbId 知识库ID

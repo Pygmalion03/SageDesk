@@ -41,7 +41,7 @@ rag:
     dimension: 1024
     image-dimension: 1024
     image-collection-suffix: _images
-    visual-answer-model: qwen3-vl-8b-thinking
+    visual-answer-model: qwen3-vl-plus-2025-09-23
     visual-answer-image-limit: 4
     visual-answer-min-score: 0.05
     metric-type: COSINE
@@ -146,12 +146,12 @@ ai:
         embedding: /api/embed
         rerank: /api/generate
     local-vl:
-      url: ${LOCAL_VL_EMBEDDING_URL:http://127.0.0.1:8115}
+      url: ${LOCAL_VL_EMBEDDING_URL:http://127.0.0.1:18115}
       api-key: ${LOCAL_VL_EMBEDDING_API_KEY:}
       endpoints:
         embedding: ${LOCAL_VL_EMBEDDING_ENDPOINT:/v1/embeddings}
     local-hf:
-      url: ${LOCAL_HF_EMBEDDING_URL:http://127.0.0.1:8125}
+      url: ${LOCAL_HF_EMBEDDING_URL:http://127.0.0.1:18125}
       api-key: ${LOCAL_HF_API_KEY:}
       endpoints:
         embedding: ${LOCAL_HF_EMBEDDING_ENDPOINT:/v1/embeddings}
@@ -171,7 +171,7 @@ ai:
     message-chunk-size: 1
 
   chat:
-    default-model: qwen-plus
+    default-model: qwen3.5-plus-2026-02-15
     deep-thinking-model: qwen3-max
     candidates:
       - id: qwen3-5-local-main
@@ -179,18 +179,18 @@ ai:
         model: ${QWEN_CHAT_MAIN_MODEL:qwen3.5:9b}
         supports-thinking: true
         priority: 0
-      - id: qwen-plus
+      - id: qwen3.5-plus-2026-02-15
         provider: bailian
-        model: qwen-plus-latest
+        model: qwen3.5-plus-2026-02-15
         priority: 20
       - id: qwen3-max
         provider: bailian
         model: qwen3-max
         supports-thinking: true
         priority: 30
-      - id: qwen3-vl-8b-thinking
+      - id: qwen3-vl-plus-2025-09-23
         provider: bailian
-        model: qwen3-vl-8b-thinking
+        model: qwen3-vl-plus-2025-09-23
         supports-thinking: true
         supports-multimodal: true
         priority: 31
@@ -248,18 +248,18 @@ ai:
       - id: minilm-rerank-local
         provider: local-hf
         model: ${MINILM_RERANK_MODEL:cross-encoder/mmarco-mMiniLMv2-L12-H384-v1}
-        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
+        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:18126/v1/rerank}
         priority: 0
         enabled: ${ENABLE_MINILM_RERANK_LOCAL:true}
       - id: qwen3-rerank-hf-small
         provider: local-hf
         model: ${QWEN_TEXT_RERANK_MODEL:Qwen/Qwen3-Reranker-0.6B}
-        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:8126/v1/rerank}
+        url: ${LOCAL_HF_RERANK_URL:http://127.0.0.1:18126/v1/rerank}
         priority: 5
       - id: qwen3-vl-rerank-local
         provider: local-hf
         model: ${QWEN_VL_RERANK_MODEL:Qwen/Qwen3-VL-Reranker-2B}
-        url: ${LOCAL_HF_VL_RERANK_URL:http://127.0.0.1:8127/v1/rerank}
+        url: ${LOCAL_HF_VL_RERANK_URL:http://127.0.0.1:18127/v1/rerank}
         priority: 5
         enabled: ${ENABLE_QWEN_VL_RERANK_LOCAL:false}
       - id: qwen3-rerank
@@ -278,7 +278,7 @@ ai:
         priority: 100
 
 rustfs:
-  url: http://localhost:9000
+  url: http://localhost:19000
   access-key-id: rustfsadmin
   secret-access-key: rustfsadmin
 

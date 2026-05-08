@@ -144,6 +144,7 @@ CREATE TABLE `t_knowledge_base`
     `name`            varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '知识库名称',
     `embedding_model` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '嵌入模型标识',
     `collection_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Milvus Collection',
+    `enabled`         tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否启用 0：禁用 1：启用',
     `created_by`      varchar(64) COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '创建人',
     `updated_by`      varchar(64) COLLATE utf8mb4_unicode_ci           DEFAULT NULL COMMENT '修改人',
     `create_time`     datetime                                NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
-import type { KnowledgeChunk, KnowledgeDocument, PageResult } from "@/services/knowledgeService";
+import type { KnowledgeBase, KnowledgeChunk, KnowledgeDocument, PageResult } from "@/services/knowledgeService";
 import {
   batchDisableChunks,
   batchEnableChunks,
@@ -21,6 +21,7 @@ import {
   deleteChunk,
   disableChunk,
   enableChunk,
+  getKnowledgeBase,
   getChunksPage,
   getDocument,
   rebuildChunks,
@@ -43,11 +44,12 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleString("zh-CN");
 };
 
-const enabledLabel = (enabled?: number | null) => (enabled === 1 ? "启用" : "禁用");
+const enabledLabel = (enabled: boolean) => (enabled ? "启用" : "未启用");
 
 export function KnowledgeChunksPage() {
   const { kbId, docId } = useParams();
   const navigate = useNavigate();
+  const [kb, setKb] = useState<KnowledgeBase | null>(null);
   const [doc, setDoc] = useState<KnowledgeDocument | null>(null);
   const [pageData, setPageData] = useState<PageResult<KnowledgeChunk> | null>(null);
   const [pageNo, setPageNo] = useState(1);
@@ -66,6 +68,22 @@ export function KnowledgeChunksPage() {
   const chunks = pageData?.records || [];
 
   const selectedList = useMemo(() => Array.from(selectedIds), [selectedIds]);
+  const knowledgeBaseDisabled = kb?.enabled === false;
+  const chunkActionsDisabled = knowledgeBaseDisabled || doc?.enabled === false;
+  const actionBlockMessage = knowledgeBaseDisabled ? "知识库已禁用，当前仅展示未启用状态" : "请先启用文档";
+  const isChunkEffectivelyEnabled = (chunk: KnowledgeChunk) =>
+    Boolean(chunk.effectiveEnabled ?? (!knowledgeBaseDisabled && chunk.enabled === 1));
+
+  const loadKnowledgeBase = useCallback(async () => {
+    if (!kbId) return;
+    try {
+      const data = await getKnowledgeBase(kbId);
+      setKb(data);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "加载知识库失败"));
+      console.error(error);
+    }
+  }, [kbId]);
 
   const loadDocument = useCallback(async () => {
     if (!docId) return;
@@ -95,6 +113,10 @@ export function KnowledgeChunksPage() {
       setLoading(false);
     }
   }, [docId, enabledFilter, pageNo]);
+
+  useEffect(() => {
+    loadKnowledgeBase();
+  }, [loadKnowledgeBase]);
 
   useEffect(() => {
     loadDocument();
@@ -134,6 +156,10 @@ export function KnowledgeChunksPage() {
 
   const handleBatchEnable = async () => {
     if (!docId) return;
+    if (chunkActionsDisabled) {
+      toast.error(actionBlockMessage);
+      return;
+    }
     if (selectedList.length === 0) {
       toast.error("请选择需要操作的分块");
       return;
@@ -151,6 +177,10 @@ export function KnowledgeChunksPage() {
 
   const handleBatchDisable = async () => {
     if (!docId) return;
+    if (chunkActionsDisabled) {
+      toast.error(actionBlockMessage);
+      return;
+    }
     if (selectedList.length === 0) {
       toast.error("请选择需要操作的分块");
       return;
@@ -168,6 +198,10 @@ export function KnowledgeChunksPage() {
 
   const handleBatchAll = async () => {
     if (!docId || !batchAllAction) return;
+    if (chunkActionsDisabled) {
+      toast.error(actionBlockMessage);
+      return;
+    }
     try {
       if (batchAllAction === "enable") {
         await batchEnableChunks(docId);
@@ -199,6 +233,10 @@ export function KnowledgeChunksPage() {
 
   const handleRebuild = async () => {
     if (!docId) return;
+    if (chunkActionsDisabled) {
+      toast.error(actionBlockMessage);
+      return;
+    }
     try {
       await rebuildChunks(docId);
       toast.success("重建完成");
@@ -211,6 +249,10 @@ export function KnowledgeChunksPage() {
 
   const handleToggleEnabled = async (chunk: KnowledgeChunk) => {
     if (!docId) return;
+    if (chunkActionsDisabled) {
+      toast.error(actionBlockMessage);
+      return;
+    }
     try {
       if (chunk.enabled === 1) {
         await disableChunk(docId, String(chunk.id));
@@ -232,14 +274,14 @@ export function KnowledgeChunksPage() {
         <div>
           <h1 className="admin-page-title">分块管理</h1>
           <p className="admin-page-subtitle">
-            {doc?.docName || docId} {kbId ? `（知识库: ${kbId}）` : ""}
+            {doc?.docName || docId} {kb ? `（知识库: ${kb.name}）` : kbId ? `（知识库: ${kbId}）` : ""}
           </p>
         </div>
         <div className="admin-page-actions">
           <Button variant="outline" onClick={() => navigate(`/admin/knowledge/${kbId}`)}>
             返回文档
           </Button>
-          <Button variant="outline" onClick={() => setRebuildOpen(true)}>
+          <Button variant="outline" onClick={() => setRebuildOpen(true)} disabled={chunkActionsDisabled}>
             重建向量
           </Button>
           <Button className="admin-primary-gradient" onClick={() => setCreateOpen(true)}>
@@ -248,6 +290,12 @@ export function KnowledgeChunksPage() {
           </Button>
         </div>
       </div>
+
+      {knowledgeBaseDisabled ? (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          当前知识库已禁用。下面分块的原始启用配置会保留，但前台显示和检索都按未启用处理。
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -277,22 +325,23 @@ export function KnowledgeChunksPage() {
                 variant="outline"
                 onClick={() => {
                   setPageNo(1);
+                  loadKnowledgeBase();
                   loadChunks(1, enabledFilter);
                 }}
               >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 刷新
               </Button>
-              <Button variant="outline" onClick={handleBatchEnable} disabled={selectedList.length === 0}>
+              <Button variant="outline" onClick={handleBatchEnable} disabled={selectedList.length === 0 || chunkActionsDisabled}>
                 <ShieldCheck className="mr-2 h-4 w-4" />
                 批量启用
               </Button>
-              <Button variant="outline" onClick={handleBatchDisable} disabled={selectedList.length === 0}>
+              <Button variant="outline" onClick={handleBatchDisable} disabled={selectedList.length === 0 || chunkActionsDisabled}>
                 <ShieldX className="mr-2 h-4 w-4" />
                 批量禁用
               </Button>
-              <Button variant="outline" onClick={() => setBatchAllAction("enable")}>全量启用</Button>
-              <Button variant="outline" onClick={() => setBatchAllAction("disable")}>全量禁用</Button>
+              <Button variant="outline" onClick={() => setBatchAllAction("enable")} disabled={chunkActionsDisabled}>全量启用</Button>
+              <Button variant="outline" onClick={() => setBatchAllAction("disable")} disabled={chunkActionsDisabled}>全量禁用</Button>
             </div>
           </div>
         </CardHeader>
@@ -310,7 +359,7 @@ export function KnowledgeChunksPage() {
                   </TableHead>
                   <TableHead className="w-[70px]">序号</TableHead>
                   <TableHead>内容</TableHead>
-                  <TableHead className="w-[90px]">状态</TableHead>
+                  <TableHead className="w-[90px]">生效状态</TableHead>
                   <TableHead className="w-[90px]">字符数</TableHead>
                   <TableHead className="w-[90px]">Token数</TableHead>
                   <TableHead className="w-[170px]">更新时间</TableHead>
@@ -332,8 +381,8 @@ export function KnowledgeChunksPage() {
                       {truncateText(chunk.content)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={chunk.enabled === 1 ? "default" : "outline"}>
-                        {enabledLabel(chunk.enabled)}
+                      <Badge variant={isChunkEffectivelyEnabled(chunk) ? "default" : "outline"}>
+                        {enabledLabel(isChunkEffectivelyEnabled(chunk))}
                       </Badge>
                     </TableCell>
                     <TableCell>{chunk.charCount ?? "-"}</TableCell>
@@ -345,7 +394,13 @@ export function KnowledgeChunksPage() {
                           <PenSquare className="mr-0.1 h-4 w-4" />
                           编辑
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleToggleEnabled(chunk)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleToggleEnabled(chunk)}
+                          disabled={chunkActionsDisabled}
+                          title={chunkActionsDisabled ? actionBlockMessage : undefined}
+                        >
                           {chunk.enabled === 1 ? "禁用" : "启用"}
                         </Button>
                         <Button

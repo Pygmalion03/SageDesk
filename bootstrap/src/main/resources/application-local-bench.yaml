@@ -9,7 +9,7 @@ spring:
 
 ai:
   chat:
-    default-model: qwen-plus
+    default-model: qwen3.5-plus-2026-02-15
     deep-thinking-model: qwen3-max
 
   embedding:

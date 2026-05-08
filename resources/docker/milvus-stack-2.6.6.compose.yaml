@@ -18,12 +18,12 @@ services:
       - RUSTFS_SECRET_KEY=rustfsadmin
       - RUSTFS_CONSOLE_ENABLE=true
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "19000:9000"
+      - "19001:9001"
     volumes:
       - rustfs-data:/data
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:9000/ || exit 1"]
+      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:9000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

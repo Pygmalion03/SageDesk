@@ -86,15 +86,25 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
 
+        boolean knowledgeBaseEnabled = isKnowledgeBaseEnabled(documentDO.getKbId());
+        boolean documentEnabled = Integer.valueOf(1).equals(documentDO.getEnabled());
+        Integer enabledFilter = requestParam.getEnabled();
+
+        if (enabledFilter != null && enabledFilter == 1 && (!knowledgeBaseEnabled || !documentEnabled)) {
+            return new Page<>(requestParam.getCurrent(), requestParam.getSize(), 0L);
+        }
+
         LambdaQueryWrapper<KnowledgeChunkDO> queryWrapper = new LambdaQueryWrapper<KnowledgeChunkDO>()
                 .eq(KnowledgeChunkDO::getDocId, docId)
-                .eq(requestParam.getEnabled() != null, KnowledgeChunkDO::getEnabled, requestParam.getEnabled())
                 .orderByAsc(KnowledgeChunkDO::getChunkIndex);
+        if (enabledFilter != null && knowledgeBaseEnabled && documentEnabled) {
+            queryWrapper.eq(KnowledgeChunkDO::getEnabled, enabledFilter);
+        }
 
         Page<KnowledgeChunkDO> page = new Page<>(requestParam.getCurrent(), requestParam.getSize());
         IPage<KnowledgeChunkDO> result = chunkMapper.selectPage(page, queryWrapper);
         fillTokenCountsIfMissing(result.getRecords());
-        return result.convert(each -> BeanUtil.toBean(each, KnowledgeChunkVO.class));
+        return result.convert(each -> toVO(each, knowledgeBaseEnabled, documentEnabled));
     }
 
     @Override
@@ -145,9 +155,15 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         log.info("新增 Chunk 成功, kbId={}, docId={}, chunkId={}, chunkIndex={}", documentDO.getKbId(), docId, chunkDO.getId(), chunkIndex);
 
         // 同步写入 Milvus
-        syncChunkToMilvus(String.valueOf(documentDO.getKbId()), docId, chunkDO, embeddingModel);
+        if (Integer.valueOf(1).equals(documentDO.getEnabled()) && isKnowledgeBaseEnabled(documentDO.getKbId())) {
+            syncChunkToMilvus(String.valueOf(documentDO.getKbId()), docId, chunkDO, embeddingModel);
+        }
 
-        return BeanUtil.toBean(chunkDO, KnowledgeChunkVO.class);
+        return toVO(
+                chunkDO,
+                isKnowledgeBaseEnabled(documentDO.getKbId()),
+                Integer.valueOf(1).equals(documentDO.getEnabled())
+        );
     }
 
     @Override
@@ -216,7 +232,9 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         // 批量写入数据库，向量索引由上层统一处理以避免重复计算
         chunkMapper.insert(chunkDOList);
 
-        if (writeVector) {
+        if (writeVector
+                && Integer.valueOf(1).equals(documentDO.getEnabled())
+                && isKnowledgeBaseEnabled(documentDO.getKbId())) {
             String kbIdStr = String.valueOf(documentDO.getKbId());
             List<VectorChunk> vectorChunks = chunkDOList.stream()
                     .map(each -> VectorChunk.builder()
@@ -261,17 +279,22 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         String kbId = String.valueOf(documentDO.getKbId());
         log.info("更新 Chunk 成功, kbId={}, docId={}, chunkId={}", kbId, docId, chunkId);
 
-        // 同步向量数据库
-        vectorStoreService.updateChunk(
-                String.valueOf(chunkDO.getKbId()),
-                docId,
-                VectorChunk.builder()
-                        .chunkId(chunkId)
-                        .content(newContent)
-                        .index(chunkDO.getChunkIndex())
-                        .embedding(toArray(embedContent(newContent, embeddingModel)))
-                        .build()
-        );
+        if (Integer.valueOf(1).equals(chunkDO.getEnabled())
+                && Integer.valueOf(1).equals(documentDO.getEnabled())
+                && isKnowledgeBaseEnabled(documentDO.getKbId())) {
+            vectorStoreService.updateChunk(
+                    String.valueOf(chunkDO.getKbId()),
+                    docId,
+                    VectorChunk.builder()
+                            .chunkId(chunkId)
+                            .content(newContent)
+                            .index(chunkDO.getChunkIndex())
+                            .embedding(toArray(embedContent(newContent, embeddingModel)))
+                            .build()
+            );
+        } else {
+            deleteChunkFromMilvus(kbId, chunkId);
+        }
     }
 
     @Override
@@ -297,15 +320,14 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     public void enableChunk(String docId, String chunkId, boolean enabled) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
-        validateDocumentEnabledForChunkEnable(documentDO, enabled);
 
         KnowledgeChunkDO chunkDO = chunkMapper.selectById(chunkId);
         Assert.notNull(chunkDO, () -> new ClientException("Chunk 不存在"));
         Assert.isTrue(chunkDO.getDocId().equals(Long.parseLong(docId)), () -> new ClientException("Chunk 不属于该文档"));
 
-        // 如果状态没变，直接返回
         int enabledValue = enabled ? 1 : 0;
         if (chunkDO.getEnabled().equals(enabledValue)) {
+            syncParentsAfterChunkToggle(documentDO, enabled);
             return;
         }
 
@@ -316,11 +338,7 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         String kbId = String.valueOf(documentDO.getKbId());
         log.info("{}Chunk 成功, kbId={}, docId={}, chunkId={}", enabled ? "启用" : "禁用", kbId, docId, chunkId);
 
-        if (enabled) {
-            syncChunkToMilvus(kbId, docId, chunkDO, resolveEmbeddingModel(documentDO.getKbId()));
-        } else {
-            deleteChunkFromMilvus(kbId, chunkId);
-        }
+        syncParentsAfterChunkToggle(documentDO, enabled);
     }
 
     @Override
@@ -360,6 +378,20 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     }
 
     @Override
+    public boolean hasEnabledChunksInKnowledgeBase(Long kbId) {
+        if (kbId == null) {
+            return false;
+        }
+        Long enabledChunkCount = chunkMapper.selectCount(
+                Wrappers.lambdaQuery(KnowledgeChunkDO.class)
+                        .eq(KnowledgeChunkDO::getKbId, kbId)
+                        .eq(KnowledgeChunkDO::getEnabled, 1)
+                        .eq(KnowledgeChunkDO::getDeleted, 0)
+        );
+        return enabledChunkCount != null && enabledChunkCount > 0;
+    }
+
+    @Override
     public List<KnowledgeChunkVO> listByDocId(String docId) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
@@ -370,8 +402,10 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
                         .orderByAsc(KnowledgeChunkDO::getChunkIndex)
         );
 
+        boolean knowledgeBaseEnabled = isKnowledgeBaseEnabled(documentDO.getKbId());
+        boolean documentEnabled = Integer.valueOf(1).equals(documentDO.getEnabled());
         return chunkDOList.stream()
-                .map(each -> BeanUtil.toBean(each, KnowledgeChunkVO.class))
+                .map(each -> toVO(each, knowledgeBaseEnabled, documentEnabled))
                 .collect(Collectors.toList());
     }
 
@@ -393,6 +427,11 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
 
         // 1. Milvus 先删除该 doc 下所有向量
         vectorStoreService.deleteDocumentVectors(kbId, docId);
+
+        if (!Integer.valueOf(1).equals(documentDO.getEnabled()) || !isKnowledgeBaseEnabled(documentDO.getKbId())) {
+            log.info("文档或知识库未启用，仅清理向量不重建, kbId={}, docId={}", kbId, docId);
+            return;
+        }
 
         // 2. 读取 MySQL enabled=1 的 chunks
         List<KnowledgeChunkDO> enabledChunks = chunkMapper.selectList(
@@ -433,7 +472,6 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
     private void batchUpdateEnabled(String docId, KnowledgeChunkBatchRequest requestParam, boolean enabled) {
         KnowledgeDocumentDO documentDO = documentMapper.selectById(docId);
         Assert.notNull(documentDO, () -> new ClientException("文档不存在"));
-        validateDocumentEnabledForChunkEnable(documentDO, enabled);
 
         List<KnowledgeChunkDO> chunks;
         if (requestParam == null || requestParam.getChunkIds() == null || requestParam.getChunkIds().isEmpty()) {
@@ -468,30 +506,84 @@ public class KnowledgeChunkServiceImpl implements KnowledgeChunkService {
         String kbId = String.valueOf(documentDO.getKbId());
         log.info("批量{}Chunk 成功, kbId={}, docId={}, count={}", enabled ? "启用" : "禁用", kbId, docId, needUpdateIds.size());
 
-        if (enabled) {
-            doRebuildByDocId(docId);
-        } else {
-            for (Long chunkId : needUpdateIds) {
-                deleteChunkFromMilvus(kbId, String.valueOf(chunkId));
-            }
-        }
+        syncParentsAfterChunkToggle(documentDO, enabled);
     }
 
-    /**
-     * 启用 chunk 前必须保证所属文档为启用状态
-     */
-    private void validateDocumentEnabledForChunkEnable(KnowledgeDocumentDO documentDO, boolean enableChunk) {
-        if (!enableChunk) {
+    private void syncParentsAfterChunkToggle(KnowledgeDocumentDO documentDO, boolean enabled) {
+        if (enabled) {
+            setDocumentEnabled(documentDO.getId(), true);
+            setKnowledgeBaseEnabled(documentDO.getKbId(), true);
             return;
         }
-        if (!Integer.valueOf(1).equals(documentDO.getEnabled())) {
-            throw new ClientException("文档未启用，无法启用Chunk，请先启用文档");
+        boolean hasEnabledChunks = hasEnabledChunksInDocument(documentDO.getId());
+        setDocumentEnabled(documentDO.getId(), hasEnabledChunks);
+        syncKnowledgeBaseEnabledFromChunks(documentDO.getKbId());
+    }
+
+    private boolean hasEnabledChunksInDocument(Long docId) {
+        Long enabledChunkCount = chunkMapper.selectCount(
+                Wrappers.lambdaQuery(KnowledgeChunkDO.class)
+                        .eq(KnowledgeChunkDO::getDocId, docId)
+                        .eq(KnowledgeChunkDO::getEnabled, 1)
+                        .eq(KnowledgeChunkDO::getDeleted, 0)
+        );
+        return enabledChunkCount != null && enabledChunkCount > 0;
+    }
+
+    private void syncKnowledgeBaseEnabledFromChunks(Long kbId) {
+        if (kbId == null) {
+            return;
         }
+        setKnowledgeBaseEnabled(kbId, hasEnabledChunksInKnowledgeBase(kbId));
+    }
+
+    private void setDocumentEnabled(Long docId, boolean enabled) {
+        if (docId == null) {
+            return;
+        }
+        KnowledgeDocumentDO update = new KnowledgeDocumentDO();
+        update.setEnabled(enabled ? 1 : 0);
+        update.setUpdatedBy(UserContext.getUsername());
+        documentMapper.update(
+                update,
+                Wrappers.lambdaUpdate(KnowledgeDocumentDO.class)
+                        .eq(KnowledgeDocumentDO::getId, docId)
+                        .eq(KnowledgeDocumentDO::getDeleted, 0)
+        );
+    }
+
+    private void setKnowledgeBaseEnabled(Long kbId, boolean enabled) {
+        if (kbId == null) {
+            return;
+        }
+        KnowledgeBaseDO update = new KnowledgeBaseDO();
+        update.setEnabled(enabled ? 1 : 0);
+        update.setUpdatedBy(UserContext.getUsername());
+        knowledgeBaseMapper.update(
+                update,
+                Wrappers.lambdaUpdate(KnowledgeBaseDO.class)
+                        .eq(KnowledgeBaseDO::getId, kbId)
+                        .eq(KnowledgeBaseDO::getDeleted, 0)
+        );
     }
 
     /**
      * 将单个 chunk 同步到 Milvus
      */
+    private KnowledgeChunkVO toVO(KnowledgeChunkDO each, boolean knowledgeBaseEnabled, boolean documentEnabled) {
+        KnowledgeChunkVO vo = BeanUtil.toBean(each, KnowledgeChunkVO.class);
+        vo.setEffectiveEnabled(knowledgeBaseEnabled && documentEnabled && Integer.valueOf(1).equals(each.getEnabled()));
+        return vo;
+    }
+
+    private boolean isKnowledgeBaseEnabled(Long kbId) {
+        if (kbId == null) {
+            return true;
+        }
+        KnowledgeBaseDO kbDO = knowledgeBaseMapper.selectById(kbId);
+        return kbDO == null || Integer.valueOf(1).equals(kbDO.getEnabled());
+    }
+
     private void syncChunkToMilvus(String kbId, String docId, KnowledgeChunkDO chunkDO, String embeddingModel) {
         List<Float> embedding = embedContent(chunkDO.getContent(), embeddingModel);
         float[] vector = toArray(embedding);

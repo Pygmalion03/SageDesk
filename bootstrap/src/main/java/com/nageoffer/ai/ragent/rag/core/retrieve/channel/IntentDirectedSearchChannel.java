@@ -153,6 +153,7 @@ public class IntentDirectedSearchChannel implements SearchChannel {
         return context.getIntents().stream()
                 .flatMap(si -> si.nodeScores().stream())
                 .filter(ns -> ns.getNode() != null && ns.getNode().isKB())
+                .filter(ns -> ns.getNode().getCollectionName() != null && !ns.getNode().getCollectionName().isBlank())
                 .filter(ns -> ns.getScore() >= minScore)
                 .toList();
     }

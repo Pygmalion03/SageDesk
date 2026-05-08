@@ -17,13 +17,19 @@
 
 package com.nageoffer.ai.ragent.knowledge.service;
 
-import com.nageoffer.ai.ragent.framework.context.UserContext;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.nageoffer.ai.ragent.framework.context.LoginUser;
+import com.nageoffer.ai.ragent.framework.context.UserContext;
 import com.nageoffer.ai.ragent.framework.exception.ClientException;
 import com.nageoffer.ai.ragent.infra.model.EmbeddingModelDimensionResolver;
 import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBaseCreateRequest;
+import com.nageoffer.ai.ragent.knowledge.controller.request.KnowledgeBasePageRequest;
+import com.nageoffer.ai.ragent.knowledge.controller.vo.KnowledgeBaseVO;
 import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
+import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeDocumentDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
+import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeChunkMapper;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeDocumentMapper;
 import com.nageoffer.ai.ragent.knowledge.service.impl.KnowledgeBaseServiceImpl;
 import com.nageoffer.ai.ragent.rag.core.vector.VectorSpaceSpec;
@@ -34,6 +40,8 @@ import org.mockito.ArgumentCaptor;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +58,7 @@ class KnowledgeBaseServiceImplTests {
     void shouldCreateVectorSpaceWithEmbeddingDimension() {
         KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
         KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
         VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
         S3Client s3Client = mock(S3Client.class);
         EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
@@ -69,6 +78,7 @@ class KnowledgeBaseServiceImplTests {
         KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
                 knowledgeBaseMapper,
                 knowledgeDocumentMapper,
+                knowledgeChunkMapper,
                 vectorStoreAdmin,
                 s3Client,
                 dimensionResolver
@@ -93,6 +103,7 @@ class KnowledgeBaseServiceImplTests {
     void shouldRejectInvalidCollectionNameBeforeCreatingExternalResources() {
         KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
         KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
         VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
         S3Client s3Client = mock(S3Client.class);
         EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
@@ -100,6 +111,7 @@ class KnowledgeBaseServiceImplTests {
         KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
                 knowledgeBaseMapper,
                 knowledgeDocumentMapper,
+                knowledgeChunkMapper,
                 vectorStoreAdmin,
                 s3Client,
                 dimensionResolver
@@ -122,6 +134,7 @@ class KnowledgeBaseServiceImplTests {
     void shouldConvertS3BucketConflictToClientMessage() {
         KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
         KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
         VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
         S3Client s3Client = mock(S3Client.class);
         EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
@@ -145,6 +158,7 @@ class KnowledgeBaseServiceImplTests {
         KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
                 knowledgeBaseMapper,
                 knowledgeDocumentMapper,
+                knowledgeChunkMapper,
                 vectorStoreAdmin,
                 s3Client,
                 dimensionResolver
@@ -158,7 +172,173 @@ class KnowledgeBaseServiceImplTests {
         ClientException exception = Assertions.assertThrows(ClientException.class, () -> service.create(request));
 
         Assertions.assertTrue(exception.getErrorMessage().contains("存储桶已存在"));
+        Assertions.assertTrue(exception.getErrorMessage().contains("yuedu1024"));
         verify(vectorStoreAdmin, never()).ensureVectorSpace(any());
         UserContext.clear();
+    }
+
+    @Test
+    void shouldExposeKnowledgeBaseEnabledStatusFromChunkCounts() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        S3Client s3Client = mock(S3Client.class);
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+
+        KnowledgeBaseDO kb = KnowledgeBaseDO.builder()
+                .id(101L)
+                .name("YUEDU")
+                .collectionName("yuedu")
+                .embeddingModel("qwen-emb")
+                .enabled(1)
+                .deleted(0)
+                .build();
+        Page<KnowledgeBaseDO> page = new Page<>(1, 10);
+        page.setRecords(List.of(kb));
+        page.setTotal(1);
+        when(knowledgeBaseMapper.selectPage(any(Page.class), any())).thenReturn(page);
+        when(knowledgeDocumentMapper.selectMaps(any())).thenReturn(List.of(
+                Map.of("kbId", 101L, "docCount", 2L, "enabledDocCount", 1L)
+        ));
+        when(knowledgeDocumentMapper.selectList(any())).thenReturn(List.of(
+                KnowledgeDocumentDO.builder().id(201L).kbId(101L).enabled(1).deleted(0).build()
+        ));
+        when(knowledgeChunkMapper.selectMaps(any()))
+                .thenReturn(
+                        List.of(Map.of("kbId", 101L, "chunkCount", 5L)),
+                        List.of(Map.of("kbId", 101L, "enabledChunkCount", 2L))
+                );
+
+        KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
+                knowledgeBaseMapper,
+                knowledgeDocumentMapper,
+                knowledgeChunkMapper,
+                vectorStoreAdmin,
+                s3Client,
+                dimensionResolver
+        );
+
+        IPage<KnowledgeBaseVO> result = service.pageQuery(new KnowledgeBasePageRequest());
+
+        Assertions.assertEquals(1, result.getRecords().size());
+        KnowledgeBaseVO record = result.getRecords().get(0);
+        Assertions.assertTrue(Boolean.TRUE.equals(record.getEnabled()));
+        Assertions.assertTrue(Boolean.TRUE.equals(record.getEffectiveEnabled()));
+        Assertions.assertEquals(2L, record.getEnabledChunkCount());
+    }
+
+    @Test
+    void shouldNotExposeKnowledgeBaseEnabledWhenEnabledChunksBelongToDisabledDocuments() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        S3Client s3Client = mock(S3Client.class);
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+
+        KnowledgeBaseDO kb = KnowledgeBaseDO.builder()
+                .id(101L)
+                .name("YUEDU")
+                .collectionName("yuedu")
+                .embeddingModel("qwen-emb")
+                .enabled(1)
+                .deleted(0)
+                .build();
+        Page<KnowledgeBaseDO> page = new Page<>(1, 10);
+        page.setRecords(List.of(kb));
+        page.setTotal(1);
+        when(knowledgeBaseMapper.selectPage(any(Page.class), any())).thenReturn(page);
+        when(knowledgeDocumentMapper.selectMaps(any())).thenReturn(List.of(
+                Map.of("kbId", 101L, "docCount", 2L, "enabledDocCount", 0L)
+        ));
+        when(knowledgeDocumentMapper.selectList(any())).thenReturn(List.of());
+        when(knowledgeChunkMapper.selectMaps(any())).thenReturn(List.of(
+                Map.of("kbId", 101L, "chunkCount", 5L)
+        ));
+
+        KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
+                knowledgeBaseMapper,
+                knowledgeDocumentMapper,
+                knowledgeChunkMapper,
+                vectorStoreAdmin,
+                s3Client,
+                dimensionResolver
+        );
+
+        IPage<KnowledgeBaseVO> result = service.pageQuery(new KnowledgeBasePageRequest());
+
+        KnowledgeBaseVO record = result.getRecords().get(0);
+        Assertions.assertTrue(Boolean.TRUE.equals(record.getEnabled()));
+        Assertions.assertFalse(Boolean.TRUE.equals(record.getEffectiveEnabled()));
+        Assertions.assertEquals(0L, record.getEnabledChunkCount());
+    }
+
+    @Test
+    void shouldCascadeKnowledgeBaseDisabledStateToDocumentsAndChunks() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        S3Client s3Client = mock(S3Client.class);
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+
+        KnowledgeBaseDO kb = KnowledgeBaseDO.builder()
+                .id(101L)
+                .name("YUEDU")
+                .collectionName("yuedu")
+                .embeddingModel("qwen-emb")
+                .enabled(1)
+                .deleted(0)
+                .build();
+        when(knowledgeBaseMapper.selectById("101")).thenReturn(kb);
+        KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
+                knowledgeBaseMapper,
+                knowledgeDocumentMapper,
+                knowledgeChunkMapper,
+                vectorStoreAdmin,
+                s3Client,
+                dimensionResolver
+        );
+
+        service.enable("101", false);
+
+        Assertions.assertEquals(0, kb.getEnabled());
+        verify(knowledgeDocumentMapper).update(any(KnowledgeDocumentDO.class), any());
+        verify(knowledgeChunkMapper).update(any(), any());
+    }
+
+    @Test
+    void shouldCascadeKnowledgeBaseEnabledStateToDocumentsAndChunks() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        KnowledgeDocumentMapper knowledgeDocumentMapper = mock(KnowledgeDocumentMapper.class);
+        KnowledgeChunkMapper knowledgeChunkMapper = mock(KnowledgeChunkMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        S3Client s3Client = mock(S3Client.class);
+        EmbeddingModelDimensionResolver dimensionResolver = mock(EmbeddingModelDimensionResolver.class);
+
+        KnowledgeBaseDO kb = KnowledgeBaseDO.builder()
+                .id(101L)
+                .name("YUEDU")
+                .collectionName("yuedu")
+                .embeddingModel("qwen-emb")
+                .enabled(0)
+                .deleted(0)
+                .build();
+        when(knowledgeBaseMapper.selectById("101")).thenReturn(kb);
+        KnowledgeBaseServiceImpl service = new KnowledgeBaseServiceImpl(
+                knowledgeBaseMapper,
+                knowledgeDocumentMapper,
+                knowledgeChunkMapper,
+                vectorStoreAdmin,
+                s3Client,
+                dimensionResolver
+        );
+
+        service.enable("101", true);
+
+        Assertions.assertEquals(1, kb.getEnabled());
+        verify(knowledgeDocumentMapper).update(any(KnowledgeDocumentDO.class), any());
+        verify(knowledgeChunkMapper).update(any(), any());
     }
 }

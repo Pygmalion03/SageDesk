@@ -48,9 +48,34 @@ public class KnowledgeBaseVO {
     private String collectionName;
 
     /**
+     * 知识库原始启用状态
+     */
+    private Boolean enabled;
+
+    /**
+     * 知识库前端展示的生效启用状态
+     */
+    private Boolean effectiveEnabled;
+
+    /**
      * 文档数量
      */
     private Long documentCount;
+
+    /**
+     * 启用文档数量
+     */
+    private Long enabledDocumentCount;
+
+    /**
+     * 分块总数
+     */
+    private Long chunkCount;
+
+    /**
+     * 启用分块数量（不受知识库开关影响）
+     */
+    private Long enabledChunkCount;
 
     /**
      * 创建人

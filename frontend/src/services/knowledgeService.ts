@@ -5,8 +5,13 @@ export interface KnowledgeBase {
   name: string;
   embeddingModel: string;
   collectionName: string;
+  enabled?: boolean | null;
+  effectiveEnabled?: boolean | null;
   createdBy?: string | null;
   documentCount?: number;
+  enabledDocumentCount?: number | null;
+  chunkCount?: number | null;
+  enabledChunkCount?: number | null;
   createTime?: string;
   updateTime?: string;
 }
@@ -51,6 +56,7 @@ export interface KnowledgeChunk {
   charCount?: number | null;
   tokenCount?: number | null;
   enabled?: number | null;
+  effectiveEnabled?: boolean | null;
   createTime?: string | null;
   updateTime?: string | null;
 }
@@ -157,6 +163,12 @@ export const updateKnowledgeBase = async (id: string, data: KnowledgeBaseUpdateP
 
 export const renameKnowledgeBase = async (id: string, name: string): Promise<void> => {
   await api.put(`/knowledge-base/${id}`, { name });
+};
+
+export const enableKnowledgeBase = async (id: string, enabled: boolean): Promise<void> => {
+  await api.patch(`/knowledge-base/${id}/enable`, null, {
+    params: { value: enabled }
+  });
 };
 
 export const deleteKnowledgeBase = async (id: string): Promise<void> => {

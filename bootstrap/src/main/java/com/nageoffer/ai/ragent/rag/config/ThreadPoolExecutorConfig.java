@@ -117,6 +117,25 @@ public class ThreadPoolExecutorConfig {
     }
 
     /**
+     * Conversation title generation executor.
+     */
+    @Bean
+    public Executor conversationTitleExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                1,
+                Math.max(2, CPU_COUNT >> 1),
+                60,
+                TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(200),
+                ThreadFactoryBuilder.create()
+                        .setNamePrefix("conversation_title_executor_")
+                        .build(),
+                new ThreadPoolExecutor.AbortPolicy()
+        );
+        return TtlExecutors.getTtlExecutor(executor);
+    }
+
+    /**
      * 意图识别并行执行线程池
      */
     @Bean

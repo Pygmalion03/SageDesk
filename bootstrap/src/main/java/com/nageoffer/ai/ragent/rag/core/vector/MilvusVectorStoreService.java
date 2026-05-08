@@ -166,17 +166,19 @@ public class MilvusVectorStoreService implements VectorStoreService {
         KnowledgeBaseDO kbDO = kbMapper.selectById(kbId);
         Assert.notNull(kbDO, () -> new ClientException("知识库不存在"));
 
-        String filter = "metadata[\"kb_id\"] == \"" + kbId + "\" && " +
-                "metadata[\"doc_id\"] == \"" + docId + "\"";
+        String filter = buildDocumentFilter(kbId, docId);
+        deleteByFilter(kbDO.getCollectionName(), filter, kbId, docId);
 
-        DeleteReq deleteReq = DeleteReq.builder()
-                .collectionName(kbDO.getCollectionName())
-                .filter(filter)
-                .build();
-
-        DeleteResp resp = milvusClient.delete(deleteReq);
-        log.info("Milvus 文档向量删除成功, collection={}, kbId={}, docId={}, deleteCnt={}",
-                kbDO.getCollectionName(), kbId, docId, resp.getDeleteCnt());
+        String imageCollection = imageCollectionName(kbDO.getCollectionName());
+        if (imageCollection == null) {
+            return;
+        }
+        try {
+            deleteByFilter(imageCollection, filter, kbId, docId);
+        } catch (Exception ex) {
+            log.warn("Milvus 视觉文档向量删除跳过, collection={}, kbId={}, docId={}, reason={}",
+                    imageCollection, kbId, docId, ex.getMessage());
+        }
     }
 
     @Override
@@ -200,5 +202,39 @@ public class MilvusVectorStoreService implements VectorStoreService {
             arr.add(value);
         }
         return arr;
+    }
+
+    private String buildDocumentFilter(String kbId, String docId) {
+        String safeKbId = escapeExpr(kbId);
+        String safeDocId = escapeExpr(docId);
+        return "(metadata[\"kb_id\"] == \"" + safeKbId + "\" && metadata[\"doc_id\"] == \"" + safeDocId + "\")"
+                + " || metadata[\"task_id\"] == \"" + safeDocId + "\"";
+    }
+
+    private void deleteByFilter(String collectionName, String filter, String kbId, String docId) {
+        if (collectionName == null || collectionName.isBlank()) {
+            return;
+        }
+        DeleteReq deleteReq = DeleteReq.builder()
+                .collectionName(collectionName)
+                .filter(filter)
+                .build();
+
+        DeleteResp resp = milvusClient.delete(deleteReq);
+        long deleteCnt = resp == null ? 0L : resp.getDeleteCnt();
+        log.info("Milvus 文档向量删除成功, collection={}, kbId={}, docId={}, deleteCnt={}",
+                collectionName, kbId, docId, deleteCnt);
+    }
+
+    private String imageCollectionName(String collectionName) {
+        String suffix = ragDefaultProperties.getImageCollectionSuffix();
+        if (collectionName == null || collectionName.isBlank() || suffix == null || suffix.isBlank()) {
+            return null;
+        }
+        return collectionName + suffix;
+    }
+
+    private String escapeExpr(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

@@ -73,6 +73,11 @@ public class KnowledgeChunkVO {
     private Integer enabled;
 
     /**
+     * 鍓嶇灞曠ず鐨勭敓鏁堝惎鐢ㄧ姸鎬?
+     */
+    private Boolean effectiveEnabled;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

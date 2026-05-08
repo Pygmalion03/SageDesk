@@ -151,11 +151,15 @@ public class VisualGlobalSearchChannel implements SearchChannel {
     private List<String> getAllVisualCollections() {
         Set<String> collections = new LinkedHashSet<>();
         List<KnowledgeBaseDO> kbList = knowledgeBaseMapper.selectList(
-                Wrappers.lambdaQuery(KnowledgeBaseDO.class)
-                        .select(KnowledgeBaseDO::getCollectionName)
-                        .eq(KnowledgeBaseDO::getDeleted, 0)
+                Wrappers.query(KnowledgeBaseDO.class)
+                        .select("collection_name", "enabled")
+                        .eq("deleted", 0)
+                        .eq("enabled", 1)
         );
         for (KnowledgeBaseDO kb : kbList) {
+            if (!isEnabled(kb)) {
+                continue;
+            }
             String collectionName = kb.getCollectionName();
             if (collectionName == null || collectionName.isBlank()) {
                 continue;
@@ -173,5 +177,9 @@ public class VisualGlobalSearchChannel implements SearchChannel {
             }
         }
         return new ArrayList<>(collections);
+    }
+
+    private boolean isEnabled(KnowledgeBaseDO kb) {
+        return kb != null && (kb.getEnabled() == null || Integer.valueOf(1).equals(kb.getEnabled()));
     }
 }

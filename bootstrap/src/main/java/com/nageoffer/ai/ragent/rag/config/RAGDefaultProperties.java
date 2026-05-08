@@ -62,7 +62,7 @@ public class RAGDefaultProperties {
 
     private Integer imageDimension = 1024;
 
-    private String visualAnswerModel = "qwen3-vl-8b-thinking";
+    private String visualAnswerModel = "qwen3-vl-plus-2025-09-23";
 
     private Integer visualAnswerImageLimit = 4;
 

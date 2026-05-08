@@ -11,7 +11,7 @@ rag:
   default:
     dimension: 1024
     image-dimension: 1024
-    visual-answer-model: qwen3-vl-8b-thinking
+    visual-answer-model: qwen3-vl-plus-2025-09-23
   document-analysis:
     enabled: true
     auto-detect: true
@@ -48,7 +48,7 @@ rag:
 
 ai:
   chat:
-    default-model: qwen-plus
+    default-model: qwen3.5-plus-2026-02-15
     deep-thinking-model: qwen3-max
 
   embedding:

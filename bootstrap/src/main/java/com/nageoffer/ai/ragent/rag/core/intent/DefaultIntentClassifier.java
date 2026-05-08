@@ -307,6 +307,7 @@ public class DefaultIntentClassifier implements IntentClassifier, IntentNodeRegi
                         Wrappers.lambdaQuery(KnowledgeBaseDO.class)
                                 .in(KnowledgeBaseDO::getId, kbIds)
                                 .eq(KnowledgeBaseDO::getDeleted, 0)
+                                .eq(KnowledgeBaseDO::getEnabled, 1)
                 ).stream().collect(Collectors.toMap(KnowledgeBaseDO::getId, kb -> kb));
 
         // 2. DO -> IntentNode（第一遍：先把所有节点建出来，放到 map 里）

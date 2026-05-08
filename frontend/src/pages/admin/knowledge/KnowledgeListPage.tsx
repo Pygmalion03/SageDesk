@@ -28,13 +28,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 
 import type { KnowledgeBase, PageResult } from "@/services/knowledgeService";
-import { deleteKnowledgeBase, getKnowledgeBasesPage, renameKnowledgeBase } from "@/services/knowledgeService";
+import { deleteKnowledgeBase, enableKnowledgeBase, getKnowledgeBasesPage, renameKnowledgeBase } from "@/services/knowledgeService";
 import { CreateKnowledgeBaseDialog } from "@/components/admin/CreateKnowledgeBaseDialog";
 import { getErrorMessage } from "@/utils/error";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 const STATS_PAGE_SIZE = 200;
+const isKnowledgeBaseEnabled = (kb: KnowledgeBase) => {
+  if ((kb.chunkCount ?? 0) > 0) {
+    return Boolean(kb.effectiveEnabled);
+  }
+  return Boolean(kb.enabled);
+};
 
 export function KnowledgeListPage() {
   const navigate = useNavigate();
@@ -59,6 +65,7 @@ export function KnowledgeListPage() {
     creatorCount: 0
   });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const statsRequestId = useRef(0);
 
   const knowledgeBases = pageData?.records || [];
@@ -167,6 +174,48 @@ export function KnowledgeListPage() {
     setPageNo(1);
     loadKnowledgeBases(1, keyword);
     loadStats(keyword);
+  };
+
+  const patchKnowledgeBase = (id: string, updater: (kb: KnowledgeBase) => KnowledgeBase) => {
+    setPageData((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        records: (current.records || []).map((kb) => (kb.id === id ? updater(kb) : kb))
+      };
+    });
+  };
+
+  const handleToggleEnabled = async (kb: KnowledgeBase) => {
+    const enabled = isKnowledgeBaseEnabled(kb);
+    const nextEnabled = !enabled;
+    setTogglingIds((current) => new Set(current).add(kb.id));
+    patchKnowledgeBase(kb.id, (record) => ({
+      ...record,
+      enabled: nextEnabled,
+      effectiveEnabled: nextEnabled
+    }));
+
+    try {
+      await enableKnowledgeBase(kb.id, nextEnabled);
+      toast.success(nextEnabled ? "已启用知识库" : "已禁用知识库");
+      await loadKnowledgeBases(pageNo, keyword);
+      await loadStats(keyword);
+    } catch (error) {
+      patchKnowledgeBase(kb.id, (record) => ({
+        ...record,
+        enabled,
+        effectiveEnabled: enabled
+      }));
+      toast.error(getErrorMessage(error, "知识库状态更新失败"));
+      console.error(error);
+    } finally {
+      setTogglingIds((current) => {
+        const next = new Set(current);
+        next.delete(kb.id);
+        return next;
+      });
+    }
   };
 
   const handleDelete = async () => {
@@ -308,17 +357,18 @@ export function KnowledgeListPage() {
               暂无知识库，点击上方按钮创建
             </div>
           ) : (
-            <Table className="min-w-[980px]">
+            <Table className="min-w-[1040px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[200px]">名称</TableHead>
                   <TableHead className="w-[180px]">Embedding模型</TableHead>
                   <TableHead className="w-[220px]">Collection</TableHead>
+                  <TableHead className="w-[100px]">状态</TableHead>
                   <TableHead className="w-[90px]">文档数</TableHead>
                   <TableHead className="w-[120px]">负责人</TableHead>
                   <TableHead className="w-[160px]">创建时间</TableHead>
                   <TableHead className="w-[160px]">修改时间</TableHead>
-                  <TableHead className="w-[150px] text-left">操作</TableHead>
+                  <TableHead className="w-[160px] text-left">操作</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -347,6 +397,33 @@ export function KnowledgeListPage() {
                       ) : (
                         "-"
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const active = isKnowledgeBaseEnabled(kb);
+                        const toggling = togglingIds.has(kb.id);
+                        return (
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={active}
+                            aria-label={active ? "已启用，点击禁用" : "未启用，点击切换知识库开关"}
+                            onClick={() => handleToggleEnabled(kb)}
+                            disabled={toggling}
+                            className={cn(
+                              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-70",
+                              active ? "bg-blue-600" : "bg-slate-200"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform",
+                                active ? "translate-x-4" : "translate-x-1"
+                              )}
+                            />
+                          </button>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>{kb.documentCount ?? "-"}</TableCell>
                     <TableCell>{kb.createdBy || "-"}</TableCell>

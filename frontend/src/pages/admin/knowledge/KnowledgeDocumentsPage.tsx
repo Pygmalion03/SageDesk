@@ -248,6 +248,7 @@ export function KnowledgeDocumentsPage() {
 
   const handleRefresh = () => {
     setPageNo(1);
+    loadKnowledgeBase();
     loadDocuments(1, statusFilter, keyword);
   };
 
@@ -426,6 +427,8 @@ export function KnowledgeDocumentsPage() {
   const detailNameChanged = detailTarget ? detailName.trim() !== (detailTarget.docName || "") : false;
   const detailChunkSizeDisplay = detailChunkSize === INT_MAX ? "不分块" : detailChunkSize;
   const chunkTargetIsPipeline = chunkTarget?.processMode?.toLowerCase() === "pipeline";
+  const knowledgeBaseDisabled = kb?.enabled === false;
+  const isDocumentEffectivelyEnabled = (doc: KnowledgeDocument) => !knowledgeBaseDisabled && Boolean(doc.enabled);
 
   return (
     <div className="admin-page">
@@ -446,6 +449,12 @@ export function KnowledgeDocumentsPage() {
           </Button>
         </div>
       </div>
+
+      {knowledgeBaseDisabled ? (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          当前知识库已禁用。文档原始启用配置会保留，但前台显示和检索都按未启用处理。
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -573,16 +582,24 @@ export function KnowledgeDocumentsPage() {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const enabled = Boolean(doc.enabled);
+                        const enabled = isDocumentEffectivelyEnabled(doc);
                         return (
                           <button
                             type="button"
                             role="switch"
                             aria-checked={enabled}
-                            aria-label={enabled ? "已启用，点击禁用" : "已禁用，点击启用"}
+                            aria-label={
+                              knowledgeBaseDisabled
+                                ? "知识库已禁用，文档当前按未启用展示"
+                                : enabled
+                                  ? "已启用，点击禁用"
+                                  : "已禁用，点击启用"
+                            }
                             onClick={() => handleToggleEnabled(doc)}
+                            disabled={knowledgeBaseDisabled}
+                            title={knowledgeBaseDisabled ? "知识库已禁用，文档当前按未启用展示" : undefined}
                             className={cn(
-                              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background",
+                              "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-70",
                               enabled ? "bg-blue-600" : "bg-slate-200"
                             )}
                           >

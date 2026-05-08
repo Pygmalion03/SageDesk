@@ -133,6 +133,57 @@ class VectorGlobalSearchChannelTests {
         Assertions.assertEquals("qwen3-vl-embedding-1024", targets.get(0).embeddingModel());
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldSkipDisabledKnowledgeBasesInGlobalSearchTargets() {
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        when(vectorStoreAdmin.vectorSpaceExists(any())).thenReturn(false);
+
+        AIModelProperties properties = new AIModelProperties();
+        AIModelProperties.ModelCandidate candidate = new AIModelProperties.ModelCandidate();
+        candidate.setId("qwen3-vl-embedding-1024");
+        candidate.setProvider("bailian");
+        properties.getEmbedding().setDefaultModel("qwen3-vl-embedding-1024");
+        properties.getEmbedding().setCandidates(List.of(candidate));
+        AIModelProperties.ProviderConfig providerConfig = new AIModelProperties.ProviderConfig();
+        providerConfig.setUrl("https://example.com");
+        properties.getProviders().put("bailian", providerConfig);
+        ModelSelector modelSelector = new ModelSelector(properties, new ModelHealthStore(properties));
+
+        VectorGlobalSearchChannel channel = new VectorGlobalSearchChannel(
+                mock(RetrieverService.class),
+                new SearchChannelProperties(),
+                new RAGDefaultProperties(),
+                knowledgeBaseMapper,
+                vectorStoreAdmin,
+                modelSelector,
+                Runnable::run
+        );
+
+        List<CollectionParallelRetriever.CollectionTarget> targets =
+                (List<CollectionParallelRetriever.CollectionTarget>) ReflectionTestUtils.invokeMethod(
+                        channel,
+                        "buildCollectionTargets",
+                        List.of(
+                                KnowledgeBaseDO.builder()
+                                        .collectionName("enabled-kb")
+                                        .embeddingModel("qwen3-vl-embedding-1024")
+                                        .enabled(1)
+                                        .build(),
+                                KnowledgeBaseDO.builder()
+                                        .collectionName("disabled-kb")
+                                        .embeddingModel("qwen3-vl-embedding-1024")
+                                        .enabled(0)
+                                        .build()
+                        )
+                );
+
+        Assertions.assertNotNull(targets);
+        Assertions.assertEquals(1, targets.size());
+        Assertions.assertEquals("enabled-kb", targets.get(0).collectionName());
+    }
+
     private VectorGlobalSearchChannel buildChannel(SearchChannelProperties searchChannelProperties) {
         KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
         VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);

@@ -170,9 +170,10 @@ public class VectorGlobalSearchChannel implements SearchChannel {
 
     private List<CollectionParallelRetriever.CollectionTarget> getAllKBCollections() {
         List<KnowledgeBaseDO> kbList = knowledgeBaseMapper.selectList(
-                Wrappers.lambdaQuery(KnowledgeBaseDO.class)
-                        .select(KnowledgeBaseDO::getCollectionName, KnowledgeBaseDO::getEmbeddingModel)
-                        .eq(KnowledgeBaseDO::getDeleted, 0)
+                Wrappers.query(KnowledgeBaseDO.class)
+                        .select("collection_name", "embedding_model", "enabled")
+                        .eq("deleted", 0)
+                        .eq("enabled", 1)
         );
         return buildCollectionTargets(kbList);
     }
@@ -180,6 +181,9 @@ public class VectorGlobalSearchChannel implements SearchChannel {
     private List<CollectionParallelRetriever.CollectionTarget> buildCollectionTargets(List<KnowledgeBaseDO> kbList) {
         Map<String, CollectionParallelRetriever.CollectionTarget> targets = new LinkedHashMap<>();
         for (KnowledgeBaseDO kb : kbList) {
+            if (!isEnabled(kb)) {
+                continue;
+            }
             String collectionName = kb.getCollectionName();
             if (collectionName == null || collectionName.isBlank()) {
                 continue;
@@ -206,6 +210,10 @@ public class VectorGlobalSearchChannel implements SearchChannel {
         }
 
         return new ArrayList<>(targets.values());
+    }
+
+    private boolean isEnabled(KnowledgeBaseDO kb) {
+        return kb != null && (kb.getEnabled() == null || Integer.valueOf(1).equals(kb.getEnabled()));
     }
 
     private List<RetrievedChunk> retrieveFromAllCollections(String question,

@@ -18,6 +18,7 @@
 package com.nageoffer.ai.ragent.rag.retrieve;
 
 import com.nageoffer.ai.ragent.framework.convention.RetrievedChunk;
+import com.nageoffer.ai.ragent.knowledge.dao.entity.KnowledgeBaseDO;
 import com.nageoffer.ai.ragent.knowledge.dao.mapper.KnowledgeBaseMapper;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
 import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
@@ -43,6 +44,8 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class VisualRetrievalRoutingTests {
@@ -178,10 +181,54 @@ class VisualRetrievalRoutingTests {
 
         Assertions.assertEquals(1, result.getChunks().size());
         ArgumentCaptor<RetrieveRequest> captor = ArgumentCaptor.forClass(RetrieveRequest.class);
-        org.mockito.Mockito.verify(retrieverService).retrieve(captor.capture());
+        verify(retrieverService).retrieve(captor.capture());
         RetrieveRequest request = captor.getValue();
         Assertions.assertEquals("kb_policy_images", request.getCollectionName());
         Assertions.assertEquals("qwen3-vl-embedding-1024", request.getEmbeddingModel());
         Assertions.assertEquals(10, request.getTopK());
+    }
+
+    @Test
+    void visualGlobalSearchSkipsDisabledKnowledgeBases() {
+        SearchChannelProperties properties = new SearchChannelProperties();
+        properties.getChannels().getVisualGlobal().setEnabled(true);
+        properties.getChannels().getVisualGlobal().setTopKMultiplier(1);
+        RAGDefaultProperties defaults = new RAGDefaultProperties();
+        defaults.setImageCollectionSuffix("_images");
+
+        KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
+        when(knowledgeBaseMapper.selectList(any())).thenReturn(List.of(
+                KnowledgeBaseDO.builder().collectionName("enabled_kb").enabled(1).deleted(0).build(),
+                KnowledgeBaseDO.builder().collectionName("disabled_kb").enabled(0).deleted(0).build()
+        ));
+        VectorStoreAdmin vectorStoreAdmin = mock(VectorStoreAdmin.class);
+        when(vectorStoreAdmin.vectorSpaceExists(any(VectorSpaceId.class))).thenReturn(true);
+        RetrieverService retrieverService = mock(RetrieverService.class);
+        when(retrieverService.retrieve(any(RetrieveRequest.class)))
+                .thenReturn(List.of(new RetrievedChunk("visual-1", "image evidence", 0.8F)));
+
+        VisualGlobalSearchChannel channel = new VisualGlobalSearchChannel(
+                properties,
+                defaults,
+                knowledgeBaseMapper,
+                retrieverService,
+                vectorStoreAdmin,
+                Runnable::run
+        );
+
+        SearchContext context = SearchContext.builder()
+                .originalQuestion("给我看产品图片")
+                .rewrittenQuestion("给我看产品图片")
+                .visualRequired(true)
+                .targetVisualCollections(List.of())
+                .topK(4)
+                .build();
+
+        SearchChannelResult result = channel.search(context);
+
+        Assertions.assertEquals(1, result.getChunks().size());
+        ArgumentCaptor<RetrieveRequest> captor = ArgumentCaptor.forClass(RetrieveRequest.class);
+        verify(retrieverService, times(1)).retrieve(captor.capture());
+        Assertions.assertEquals("enabled_kb_images", captor.getValue().getCollectionName());
     }
 }

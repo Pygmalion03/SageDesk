@@ -59,6 +59,11 @@ public class KnowledgeBaseDO {
     private String collectionName;
 
     /**
+     * 是否启用：1-启用，0-禁用
+     */
+    private Integer enabled;
+
+    /**
      * 创建人
      */
     private String createdBy;

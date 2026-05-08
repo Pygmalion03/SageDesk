@@ -22,6 +22,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Assert;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nageoffer.ai.ragent.infra.embedding.EmbeddingService;
@@ -339,7 +340,9 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
             });
 
             // 向量化：仅分块模式由知识库服务写入，Pipeline 模式依赖管道自身的 indexer
-            if (ProcessMode.PIPELINE != processMode) {
+            if (ProcessMode.PIPELINE != processMode
+                    && isKnowledgeBaseEnabled(documentDO.getKbId())
+                    && Integer.valueOf(1).equals(documentDO.getEnabled())) {
                 String kbId = String.valueOf(documentDO.getKbId());
                 long embeddingStart = System.currentTimeMillis();
                 vectorStoreService.deleteDocumentVectors(kbId, docId);
@@ -486,7 +489,7 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                     .source(buildIngestionSource(documentDO))
                     .rawBytes(fileBytes)
                     .mimeType(mimeType)
-                    .metadata(buildPipelineMetadata(kbDO))
+                    .metadata(buildPipelineMetadata(kbDO, documentDO))
                     .vectorSpaceId(VectorSpaceId.builder()
                             .logicalName(kbDO.getCollectionName())
                             .build())
@@ -552,11 +555,19 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
                 .build();
     }
 
-    private Map<String, Object> buildPipelineMetadata(KnowledgeBaseDO kbDO) {
+    private Map<String, Object> buildPipelineMetadata(KnowledgeBaseDO kbDO, KnowledgeDocumentDO documentDO) {
         Map<String, Object> metadata = new HashMap<>();
         if (kbDO != null && StringUtils.hasText(kbDO.getEmbeddingModel())) {
             metadata.put("embeddingModel", kbDO.getEmbeddingModel());
         }
+        if (kbDO != null && kbDO.getId() != null) {
+            metadata.put("kb_id", String.valueOf(kbDO.getId()));
+        }
+        if (documentDO != null && documentDO.getId() != null) {
+            metadata.put("doc_id", String.valueOf(documentDO.getId()));
+        }
+        metadata.put("knowledgeBaseEnabled", kbDO == null || Integer.valueOf(1).equals(kbDO.getEnabled()));
+        metadata.put("documentEnabled", documentDO == null || Integer.valueOf(1).equals(documentDO.getEnabled()));
         return metadata;
     }
 
@@ -691,25 +702,10 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         // 同步更新 Chunk 表的状态
         knowledgeChunkService.updateEnabledByDocId(docId, enabled);
 
-        if (!enabled) {
-            // 禁用文档时，从向量库中删除对应的向量
-            vectorStoreService.deleteDocumentVectors(String.valueOf(documentDO.getKbId()), docId);
+        if (enabled) {
+            setKnowledgeBaseEnabled(documentDO.getKbId(), true);
         } else {
-            // 启用文档时，根据文档分块记录重建向量索引
-            String embeddingModel = resolveEmbeddingModel(documentDO.getKbId());
-            List<KnowledgeChunkVO> chunks = knowledgeChunkService.listByDocId(docId);
-            List<VectorChunk> vectorChunks = chunks.parallelStream().map(each -> {
-                        List<Float> embed = embedContent(each.getContent(), embeddingModel);
-                        return VectorChunk.builder()
-                                .chunkId(each.getId())
-                                .content(each.getContent())
-                                .embedding(toArray(embed))
-                                .build();
-                    })
-                    .toList();
-            if (CollUtil.isNotEmpty(vectorChunks)) {
-                vectorStoreService.indexDocumentChunks(String.valueOf(documentDO.getKbId()), docId, vectorChunks);
-            }
+            syncKnowledgeBaseEnabledFromChunks(documentDO.getKbId());
         }
     }
 
@@ -774,6 +770,36 @@ public class KnowledgeDocumentServiceImpl implements KnowledgeDocumentService {
         }
         KnowledgeBaseDO kbDO = kbMapper.selectById(kbId);
         return kbDO != null ? kbDO.getEmbeddingModel() : null;
+    }
+
+    private boolean isKnowledgeBaseEnabled(Long kbId) {
+        if (kbId == null) {
+            return true;
+        }
+        KnowledgeBaseDO kbDO = kbMapper.selectById(kbId);
+        return kbDO == null || Integer.valueOf(1).equals(kbDO.getEnabled());
+    }
+
+    private void syncKnowledgeBaseEnabledFromChunks(Long kbId) {
+        if (kbId == null) {
+            return;
+        }
+        setKnowledgeBaseEnabled(kbId, knowledgeChunkService.hasEnabledChunksInKnowledgeBase(kbId));
+    }
+
+    private void setKnowledgeBaseEnabled(Long kbId, boolean enabled) {
+        if (kbId == null) {
+            return;
+        }
+        KnowledgeBaseDO update = new KnowledgeBaseDO();
+        update.setEnabled(enabled ? 1 : 0);
+        update.setUpdatedBy(UserContext.getUsername());
+        kbMapper.update(
+                update,
+                Wrappers.lambdaUpdate(KnowledgeBaseDO.class)
+                        .eq(KnowledgeBaseDO::getId, kbId)
+                        .eq(KnowledgeBaseDO::getDeleted, 0)
+        );
     }
 
     private List<Float> embedContent(String content, String embeddingModel) {
